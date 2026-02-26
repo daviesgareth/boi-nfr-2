@@ -17,7 +17,8 @@ const confidenceBadge = (conf) => {
 };
 
 const METHODS = [
-  { method: 'Bank Account', label: 'Bank Account Match', desc: 'Same sort code + account number + matching surname', confidence: 'Very High' },
+  { method: 'Bank Account (No Name)', label: 'Bank Account (No Name)', desc: 'Same sort code + account number only (strict format: 6-digit SC, 6-8 digit AN)', confidence: 'Very High' },
+  { method: 'Bank Account', label: 'Bank Account + Surname', desc: 'Same sort code + account number + matching surname', confidence: 'Very High' },
   { method: 'Name + Phone', label: 'Name + Phone', desc: 'Exact sortname + phone match (excluding placeholder numbers)', confidence: 'High' },
   { method: 'Name + Postcode', label: 'Name + Postcode', desc: 'Exact sortname + postcode (excluding common names with 5+ occurrences)', confidence: 'High' },
   { method: 'Surname + Phone + Postcode', label: 'Surname + Phone + Postcode', desc: 'Same surname + phone + postcode (household/family matching)', confidence: 'Moderate' },
@@ -39,7 +40,7 @@ export default function CustomerMatching() {
       <Callout type="info">
         <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 4 }}>AI/ML Customer Identity Resolution</div>
         <div style={{ fontSize: 13, color: C.textMid, lineHeight: 1.7 }}>
-          Customer matching uses a Union-Find algorithm with 5 signal types to link contracts belonging to the same customer. Multiple contracts can be assigned the same customer ID. The algorithm runs server-side after each data upload, and customer IDs are mutable.
+          Customer matching uses a Union-Find algorithm with 6 signal types to link contracts belonging to the same customer. Multiple contracts can be assigned the same customer ID. The algorithm runs server-side after each data upload, and customer IDs are mutable.
         </div>
       </Callout>
 

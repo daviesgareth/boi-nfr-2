@@ -26,8 +26,14 @@ const upload = multer({ storage });
 // Helper: map window parameter to retained column name
 // ---------------------------------------------------------------------------
 function getRetainedCol(window) {
-  const map = { '1mo': 'retained_1mo', '3mo': 'retained_3mo', '6mo': 'retained_6mo', '12mo': 'retained_12mo' };
-  return map[window] || 'retained_6mo';
+  const map = {
+    'core': 'retained_core',
+    '6_1': 'retained_6_1',
+    '3_3': 'retained_3_3',
+    '3_6': 'retained_3_6',
+    '3_12': 'retained_3_12',
+  };
+  return map[window] || 'retained_core';
 }
 
 // ---------------------------------------------------------------------------

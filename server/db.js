@@ -2,8 +2,8 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure data directory exists
-const dataDir = path.join(__dirname, '..', 'data');
+// Ensure data directory exists — support DATA_DIR env var for Railway volume mount
+const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
@@ -47,14 +47,25 @@ function initDB() {
     );
   `);
 
-  // Create nfr_results table
+  // --- Migrate nfr_results: detect old schema and recreate if needed ---
+  const tableInfo = db.prepare("PRAGMA table_info(nfr_results)").all();
+  const hasOldCols = tableInfo.some(c => c.name === 'retained_1mo');
+  const hasNewCols = tableInfo.some(c => c.name === 'retained_core');
+
+  if (hasOldCols && !hasNewCols) {
+    console.log('Migrating nfr_results from old schema (1mo/3mo/6mo/12mo) to new (core/6_1/3_3/3_6/3_12)...');
+    db.exec('DROP TABLE IF EXISTS nfr_results');
+  }
+
+  // Create nfr_results table with new window columns
   db.exec(`
     CREATE TABLE IF NOT EXISTS nfr_results (
       contract_id TEXT PRIMARY KEY REFERENCES contracts(contract_id),
-      retained_1mo INTEGER DEFAULT 0,
-      retained_3mo INTEGER DEFAULT 0,
-      retained_6mo INTEGER DEFAULT 0,
-      retained_12mo INTEGER DEFAULT 0,
+      retained_core INTEGER DEFAULT 0,
+      retained_6_1 INTEGER DEFAULT 0,
+      retained_3_3 INTEGER DEFAULT 0,
+      retained_3_6 INTEGER DEFAULT 0,
+      retained_3_12 INTEGER DEFAULT 0,
       next_contract_id TEXT,
       same_dealer INTEGER,
       brand_loyal INTEGER,

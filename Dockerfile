@@ -13,5 +13,7 @@ COPY server ./server
 COPY public ./public
 COPY Procfile ./
 COPY --from=build /app/dist ./dist
+RUN mkdir -p /data
+ENV DATA_DIR=/data
 EXPOSE 3001
 CMD ["node", "server/index.js"]

@@ -41,8 +41,8 @@ body {
 }
 
 option {
-  background: var(--navy-dark);
-  color: white;
+  background: white;
+  color: var(--navy);
 }
 
 /* Scrollbar styling */

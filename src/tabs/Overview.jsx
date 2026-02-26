@@ -3,7 +3,14 @@ import { fetchAPI } from '../api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Legend, Cell, Line } from 'recharts';
 import { Metric, Crd, Sec, CustomTooltip, Callout, nfrColor, fN, C, axisProps } from '../components/shared';
 
-const WINDOW_LABELS = { '1mo': '1 Month', '3mo': '3 Months', '6mo': '6 Months', '12mo': '12 Months' };
+const WINDOW_LABELS = { 'core': 'Core (−3/+1)', '6_1': '−6/+1 mo', '3_3': '−3/+3 mo', '3_6': '−3/+6 mo', '3_12': '−3/+12 mo' };
+const WINDOW_DEFS = {
+  'core': { lookback: '3 months', lookahead: '1 month' },
+  '6_1': { lookback: '6 months', lookahead: '1 month' },
+  '3_3': { lookback: '3 months', lookahead: '3 months' },
+  '3_6': { lookback: '3 months', lookahead: '6 months' },
+  '3_12': { lookback: '3 months', lookahead: '12 months' },
+};
 
 export default function Overview({ window: win }) {
   const [national, setNational] = useState(null);
@@ -22,7 +29,8 @@ export default function Overview({ window: win }) {
 
   if (!national) return <p style={{ textAlign: 'center', padding: 40, color: C.textMuted }}>Loading...</p>;
 
-  const wl = WINDOW_LABELS[win] || '6 Months';
+  const wl = WINDOW_LABELS[win] || 'Core (−3/+1)';
+  const wd = WINDOW_DEFS[win] || WINDOW_DEFS['core'];
   const earlyMultiplier = termination && termination.full_term?.nfr_rate > 0
     ? (termination.early?.nfr_rate / termination.full_term.nfr_rate).toFixed(0)
     : null;
@@ -33,7 +41,7 @@ export default function Overview({ window: win }) {
       <Callout type="info">
         <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 4 }}>NFR KPI Definition</div>
         <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.7, margin: 0 }}>
-          <strong style={{ color: C.navy }}>Northridge Finance Retention (NFR)</strong> = % of ended contracts where the same customer started a new contract within a window from <strong>6 months before</strong> the end date to <strong>{wl} after</strong>.
+          <strong style={{ color: C.navy }}>Northridge Finance Retention (NFR)</strong> = % of ended contracts where the same customer started a new contract within a window from <strong>{wd.lookback} before</strong> the end date to <strong>{wd.lookahead} after</strong>.
         </p>
       </Callout>
 
@@ -42,7 +50,7 @@ export default function Overview({ window: win }) {
         <Metric large label={`NFR @ ${wl}`} value={`${national.nfr_rate}%`} sub={`${fN(national.retained)} of ${fN(national.ended)} renewed`} accent={C.green} />
         <Metric label="Ended Contracts" value={fN(national.ended)} sub="Total closed" accent={C.navy} />
         <Metric label="Retained" value={fN(national.retained)} sub={`${national.nfr_rate}% retention`} accent={C.teal} />
-        <Metric label="Early Terminators" value={earlyMultiplier ? `${earlyMultiplier}\u00d7 more likely` : '\u2014'} sub="to renew vs full-term" accent={C.amber} />
+        <Metric label="Early Terminators" value={earlyMultiplier ? `${earlyMultiplier}× more likely` : '—'} sub="to renew vs full-term" accent={C.amber} />
       </div>
 
       {/* Trend Chart + Transitions in 2fr/1fr grid */}
@@ -110,7 +118,7 @@ export default function Overview({ window: win }) {
         {earlyMultiplier && (
           <Callout type="red">
             <div style={{ fontSize: 12, color: C.textMid }}>
-              <strong style={{ color: C.red }}>Critical:</strong> Early terminators are <strong>{earlyMultiplier}\u00d7 more likely</strong> to renew.
+              <strong style={{ color: C.red }}>Critical:</strong> Early terminators are <strong>{earlyMultiplier}× more likely</strong> to renew.
             </div>
           </Callout>
         )}

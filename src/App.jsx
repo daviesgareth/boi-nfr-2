@@ -21,22 +21,22 @@ const TABS = [
 ];
 
 const selStyle = {
-  background: 'rgba(255,255,255,0.1)',
-  border: '1px solid rgba(255,255,255,0.2)',
+  background: 'var(--white)',
+  border: '1px solid var(--border)',
   borderRadius: 8,
-  color: '#FFFFFF',
+  color: 'var(--navy)',
   padding: '6px 12px',
   fontSize: 12,
-  fontWeight: 500,
+  fontWeight: 600,
   cursor: 'pointer',
   outline: 'none',
-  minWidth: 130,
+  minWidth: 150,
   fontFamily: 'var(--font)',
 };
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
-  const [window, setWindow] = useState('6mo');
+  const [window, setWindow] = useState('core');
   const [status, setStatus] = useState(null);
   const [showUpload, setShowUpload] = useState(false);
 
@@ -73,9 +73,9 @@ export default function App() {
     padding: '8px 18px',
     borderRadius: '8px 8px 0 0',
     border: 'none',
-    borderBottom: active ? '3px solid var(--ice)' : '3px solid transparent',
-    background: active ? 'rgba(168,216,234,0.1)' : 'transparent',
-    color: active ? '#FFFFFF' : 'rgba(255,255,255,0.55)',
+    borderBottom: active ? '3px solid var(--navy)' : '3px solid transparent',
+    background: active ? 'rgba(0,53,95,0.06)' : 'transparent',
+    color: active ? 'var(--navy)' : 'var(--text-light)',
     cursor: 'pointer',
     fontSize: 12,
     fontWeight: 600,
@@ -85,42 +85,44 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      {/* Dark Header */}
+      {/* White Header */}
       <div style={{
-        background: 'var(--navy-dark)',
+        background: 'var(--white)',
         position: 'sticky',
         top: 0,
         zIndex: 100,
-        boxShadow: '0 2px 12px rgba(0,36,64,0.3)'
+        boxShadow: '0 1px 4px rgba(0,53,95,0.08)',
+        borderBottom: '1px solid var(--border)'
       }}>
         {/* Top bar */}
         <div style={{ padding: '0 36px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
             <img src="/NORTHRIDGE-BRAND-IDENTITY-COLOUR.webp" alt="Northridge Finance" style={{ height: 28 }} />
-            <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.15)' }} />
+            <div style={{ width: 1, height: 28, background: 'var(--border)' }} />
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>NFR Retention Dashboard</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>Customer Retention Intelligence</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)' }}>NFR Retention Dashboard</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Customer Retention Intelligence</div>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Window</span>
+              <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Window</span>
               <select value={window} onChange={e => setWindow(e.target.value)} style={selStyle}>
-                <option value="1mo">1 Month</option>
-                <option value="3mo">3 Months</option>
-                <option value="6mo">6 Months</option>
-                <option value="12mo">12 Months</option>
+                <option value="core">Core (−3/+1 mo)</option>
+                <option value="6_1">−6/+1 months</option>
+                <option value="3_3">−3/+3 months</option>
+                <option value="3_6">−3/+6 months</option>
+                <option value="3_12">−3/+12 months</option>
               </select>
             </div>
             {status && (
               <div style={{
                 padding: '5px 14px',
-                background: 'rgba(13,150,104,0.2)',
-                border: '1px solid rgba(13,150,104,0.35)',
+                background: 'var(--green-bg)',
+                border: '1px solid rgba(13,150,104,0.25)',
                 borderRadius: 8,
                 fontSize: 11,
-                color: '#6EE7B7',
+                color: 'var(--green)',
                 fontWeight: 600
               }}>
                 {status.total_contracts?.toLocaleString()} Contracts
@@ -133,8 +135,8 @@ export default function App() {
                 alignItems: 'center',
                 gap: 6,
                 padding: '6px 14px',
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'var(--navy)',
+                border: 'none',
                 borderRadius: 8,
                 color: '#FFFFFF',
                 fontFamily: 'var(--font)',
@@ -149,7 +151,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Tab Bar (integrated in dark header) */}
+        {/* Tab Bar */}
         <div style={{ padding: '0 36px', display: 'flex', gap: 2 }}>
           {TABS.map(tab => (
             <button

@@ -77,7 +77,38 @@ function runMatching() {
     byContractId[c.contract_id] = c;
   }
 
-  // ---- Pass 1: Bank Account Match (Very High) ----
+  // ---- Pass 0: Bank Account (No Name) Match (Very High) ----
+  // Strict format validation: 6-digit sort code, 6-8 digit account number
+  const SORTCODE_RE = /^\d{6}$/;
+  const ACCOUNT_RE = /^\d{6,8}$/;
+  const bankNoNameGroups = {};
+  for (const c of contracts) {
+    const sc = (c.bank_sortcode || '').trim().replace(/-/g, '');
+    const an = (c.account_number || '').trim();
+    if (SORTCODE_RE.test(sc) && ACCOUNT_RE.test(an)) {
+      const key = `${sc}|${an}`;
+      if (!bankNoNameGroups[key]) bankNoNameGroups[key] = [];
+      bankNoNameGroups[key].push(c);
+    }
+  }
+  for (const key of Object.keys(bankNoNameGroups)) {
+    const group = bankNoNameGroups[key];
+    if (group.length < 2) continue;
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        if (uf.union(group[i].contract_id, group[j].contract_id)) {
+          matchPairs.push({
+            contract_id_a: group[i].contract_id,
+            contract_id_b: group[j].contract_id,
+            match_method: 'Bank Account (No Name)',
+            confidence: 'Very High',
+          });
+        }
+      }
+    }
+  }
+
+  // ---- Pass 1: Bank Account Match + Surname (Very High) ----
   const bankGroups = {};
   for (const c of contracts) {
     if (c.bank_sortcode && c.account_number &&
