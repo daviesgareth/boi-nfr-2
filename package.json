@@ -1,0 +1,30 @@
+{
+  "name": "northridge-finance-nfr-v3",
+  "version": "1.0.0",
+  "description": "Northridge Finance NFR Retention Dashboard",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "dev:server": "node server/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.4",
+    "better-sqlite3": "^12.6.2",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "lucide-react": "^0.575.0",
+    "multer": "^2.0.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-dropzone": "^15.0.0",
+    "recharts": "^3.7.0",
+    "vite": "^7.3.1",
+    "xlsx": "^0.18.5"
+  }
+}
