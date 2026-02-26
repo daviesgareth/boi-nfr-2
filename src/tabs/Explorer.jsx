@@ -10,24 +10,66 @@ import EmptyState from '../components/EmptyState';
 import useNFRData from '../hooks/useNFRData';
 import { useFilters } from '../contexts/FilterContext';
 
-const GROUP_OPTIONS = [
-  { id: 'make', label: 'Make' },
-  { id: 'region', label: 'Region' },
-  { id: 'agreement_type', label: 'Agreement' },
-  { id: 'term_band', label: 'Term' },
-  { id: 'year', label: 'Year' },
-  { id: 'new_used', label: 'New/Used' },
-  { id: 'termination', label: 'Termination' },
-  { id: 'fuel_type', label: 'Fuel Type' },
-  { id: 'customer_type', label: 'Customer Type' },
+const GROUP_SECTIONS = [
+  {
+    label: 'Core',
+    options: [
+      { id: 'make', label: 'Make' },
+      { id: 'region', label: 'Region' },
+      { id: 'agreement_type', label: 'Agreement' },
+      { id: 'term_band', label: 'Term' },
+      { id: 'year', label: 'Year' },
+      { id: 'new_used', label: 'New/Used' },
+      { id: 'termination', label: 'Termination' },
+    ],
+  },
+  {
+    label: 'Financial',
+    options: [
+      { id: 'apr_band', label: 'APR Band' },
+      { id: 'deposit_band', label: 'Deposit %' },
+      { id: 'repayment_band', label: 'Repayment' },
+      { id: 'has_px', label: 'Part Exchange' },
+    ],
+  },
+  {
+    label: 'Vehicle',
+    options: [
+      { id: 'fuel_type', label: 'Fuel Type' },
+      { id: 'vehicle_age_band', label: 'Vehicle Age' },
+      { id: 'mileage_band', label: 'Mileage' },
+      { id: 'merc_type', label: 'Merch Type' },
+    ],
+  },
+  {
+    label: 'Customer',
+    options: [
+      { id: 'customer_type', label: 'Customer Type' },
+      { id: 'gender', label: 'Gender' },
+      { id: 'owner_tenant', label: 'Own/Rent' },
+    ],
+  },
 ];
 
-const INITIAL_FILTERS = { year: '', region: '', make: '', agreement_type: '', term_band: '', new_used: '', termination: '', fuel_type: '', customer_type: '' };
+// Flat list for lookups
+const ALL_GROUP_OPTIONS = GROUP_SECTIONS.flatMap(s => s.options);
+
+const INITIAL_FILTERS = {
+  year: '', region: '', make: '', agreement_type: '', term_band: '',
+  new_used: '', termination: '', fuel_type: '', customer_type: '',
+  apr_band: '', deposit_band: '', repayment_band: '', has_px: '',
+  vehicle_age_band: '', mileage_band: '', merc_type: '', gender: '', owner_tenant: '',
+};
 
 const selectStyle = {
   background: '#FFFFFF', border: '1px solid #E0E5EC', borderRadius: 8,
   color: '#00355F', padding: '6px 10px', fontSize: 12, fontWeight: 600,
   cursor: 'pointer', outline: 'none', width: '100%', fontFamily: 'var(--font)',
+};
+
+const sectionLabelStyle = {
+  fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase',
+  letterSpacing: '0.5px', padding: '4px 0 2px',
 };
 
 export default function Explorer() {
@@ -88,6 +130,9 @@ export default function Explorer() {
     { key: 'termination', label: 'Termination', options: null, placeholder: 'All' },
     { key: 'fuel_type', label: 'Fuel Type', options: filterOptions.fuels, placeholder: 'All Fuels' },
     { key: 'customer_type', label: 'Cust. Type', options: filterOptions.custTypes, placeholder: 'All Types' },
+    { key: 'gender', label: 'Gender', options: null, placeholder: 'All' },
+    { key: 'owner_tenant', label: 'Own/Rent', options: null, placeholder: 'All' },
+    { key: 'has_px', label: 'Part Ex.', options: null, placeholder: 'All' },
   ];
 
   return (
@@ -98,7 +143,7 @@ export default function Explorer() {
         values={filters}
         onChange={updateFilter}
         onReset={() => setFilters(INITIAL_FILTERS)}
-        columns={5}
+        columns={6}
         customRenderers={{
           new_used: (val, onChange) => (
             <select style={selectStyle} value={val || ''} onChange={e => onChange(e.target.value)}>
@@ -114,15 +159,41 @@ export default function Explorer() {
               <option value="full">Full Term</option>
             </select>
           ),
+          gender: (val, onChange) => (
+            <select style={selectStyle} value={val || ''} onChange={e => onChange(e.target.value)}>
+              <option value="">All</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          ),
+          owner_tenant: (val, onChange) => (
+            <select style={selectStyle} value={val || ''} onChange={e => onChange(e.target.value)}>
+              <option value="">All</option>
+              <option value="Owner">Owner</option>
+              <option value="Tenant">Tenant</option>
+            </select>
+          ),
+          has_px: (val, onChange) => (
+            <select style={selectStyle} value={val || ''} onChange={e => onChange(e.target.value)}>
+              <option value="">All</option>
+              <option value="1">With PX</option>
+              <option value="0">No PX</option>
+            </select>
+          ),
         }}
       />
 
-      {/* Group By Pills */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {GROUP_OPTIONS.map(opt => (
-          <Pill key={opt.id} active={groupBy === opt.id} onClick={() => setGroupBy(opt.id)}>
-            {opt.label}
-          </Pill>
+      {/* Group By — sectioned pills */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {GROUP_SECTIONS.map(section => (
+          <div key={section.label} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={sectionLabelStyle}>{section.label}</span>
+            {section.options.map(opt => (
+              <Pill key={opt.id} active={groupBy === opt.id} onClick={() => setGroupBy(opt.id)}>
+                {opt.label}
+              </Pill>
+            ))}
+          </div>
         ))}
       </div>
 
@@ -137,7 +208,7 @@ export default function Explorer() {
         <EmptyState title="No data" description="No data matches the current filters." action={{ label: 'Reset Filters', onClick: () => setFilters(INITIAL_FILTERS) }} />
       ) : (
         <>
-          <ChartCard title={`NFR by ${GROUP_OPTIONS.find(o => o.id === groupBy)?.label}`}>
+          <ChartCard title={`NFR by ${ALL_GROUP_OPTIONS.find(o => o.id === groupBy)?.label}`}>
             <NFRBarChart data={data} categoryKey="group" />
           </ChartCard>
 

@@ -73,6 +73,33 @@ function initDB() {
     `);
   }
 
+  // --- Migrate contracts: add enriched analytics columns if missing ---
+  const contractInfo3 = db.prepare("PRAGMA table_info(contracts)").all();
+  const hasAprCol = contractInfo3.some(c => c.name === 'apr');
+  if (!hasAprCol) {
+    console.log('Adding enriched analytics columns to contracts...');
+    db.exec(`
+      ALTER TABLE contracts ADD COLUMN apr REAL;
+      ALTER TABLE contracts ADD COLUMN apr_band TEXT;
+      ALTER TABLE contracts ADD COLUMN cash_deposit REAL;
+      ALTER TABLE contracts ADD COLUMN deposit_band TEXT;
+      ALTER TABLE contracts ADD COLUMN px_value REAL;
+      ALTER TABLE contracts ADD COLUMN has_px INTEGER DEFAULT 0;
+      ALTER TABLE contracts ADD COLUMN repayment REAL;
+      ALTER TABLE contracts ADD COLUMN repayment_band TEXT;
+      ALTER TABLE contracts ADD COLUMN merc_type TEXT;
+      ALTER TABLE contracts ADD COLUMN mileage INTEGER;
+      ALTER TABLE contracts ADD COLUMN mileage_band TEXT;
+      ALTER TABLE contracts ADD COLUMN vehicle_age INTEGER;
+      ALTER TABLE contracts ADD COLUMN vehicle_age_band TEXT;
+      ALTER TABLE contracts ADD COLUMN gender TEXT;
+      ALTER TABLE contracts ADD COLUMN marital_status TEXT;
+      ALTER TABLE contracts ADD COLUMN occupation TEXT;
+      ALTER TABLE contracts ADD COLUMN owner_tenant TEXT;
+      ALTER TABLE contracts ADD COLUMN rep_code TEXT;
+    `);
+  }
+
   // --- Migrate nfr_results: detect old/missing schema and recreate if needed ---
   const tableInfo = db.prepare("PRAGMA table_info(nfr_results)").all();
   const hasOldCols = tableInfo.some(c => c.name === 'retained_1mo');
@@ -133,6 +160,15 @@ function initDB() {
     CREATE INDEX IF NOT EXISTS idx_contracts_is_open ON contracts(is_open);
     CREATE INDEX IF NOT EXISTS idx_contracts_fuel_type ON contracts(fuel_type);
     CREATE INDEX IF NOT EXISTS idx_contracts_customer_type ON contracts(customer_type);
+    CREATE INDEX IF NOT EXISTS idx_contracts_apr_band ON contracts(apr_band);
+    CREATE INDEX IF NOT EXISTS idx_contracts_deposit_band ON contracts(deposit_band);
+    CREATE INDEX IF NOT EXISTS idx_contracts_repayment_band ON contracts(repayment_band);
+    CREATE INDEX IF NOT EXISTS idx_contracts_vehicle_age_band ON contracts(vehicle_age_band);
+    CREATE INDEX IF NOT EXISTS idx_contracts_mileage_band ON contracts(mileage_band);
+    CREATE INDEX IF NOT EXISTS idx_contracts_merc_type ON contracts(merc_type);
+    CREATE INDEX IF NOT EXISTS idx_contracts_gender ON contracts(gender);
+    CREATE INDEX IF NOT EXISTS idx_contracts_owner_tenant ON contracts(owner_tenant);
+    CREATE INDEX IF NOT EXISTS idx_contracts_has_px ON contracts(has_px);
   `);
 
   // Create users table for authentication

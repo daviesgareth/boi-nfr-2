@@ -409,6 +409,15 @@ const ALLOWED_GROUP_BY = {
   termination: "CASE WHEN c.ended_early = 1 THEN 'Early Termination' ELSE 'Full Term' END",
   fuel_type: "c.fuel_type",
   customer_type: "c.customer_type",
+  apr_band: "c.apr_band",
+  deposit_band: "c.deposit_band",
+  repayment_band: "c.repayment_band",
+  has_px: "CASE WHEN c.has_px = 1 THEN 'Part Exchange' ELSE 'No PX' END",
+  vehicle_age_band: "c.vehicle_age_band",
+  mileage_band: "c.mileage_band",
+  merc_type: "c.merc_type",
+  gender: "c.gender",
+  owner_tenant: "c.owner_tenant",
 };
 
 function getExplorerData(retainedCol, exclusionConditions, { groupBy, filters }) {
@@ -418,7 +427,12 @@ function getExplorerData(retainedCol, exclusionConditions, { groupBy, filters })
   const conditions = ['c.is_open = 0'];
   const params = [];
 
-  const { year, region, make, agreement_type, term_band, new_used, termination, fuel_type, customer_type } = filters;
+  const {
+    year, region, make, agreement_type, term_band, new_used,
+    termination, fuel_type, customer_type,
+    apr_band, deposit_band, repayment_band, has_px, vehicle_age_band,
+    mileage_band, merc_type, gender, owner_tenant,
+  } = filters;
 
   if (year) { conditions.push("substr(c.end_date, 1, 4) = ?"); params.push(year); }
   if (region) { conditions.push("c.region = ?"); params.push(region); }
@@ -430,6 +444,16 @@ function getExplorerData(retainedCol, exclusionConditions, { groupBy, filters })
   else if (termination === 'full') conditions.push("c.ended_early = 0");
   if (fuel_type) { conditions.push("c.fuel_type = ?"); params.push(fuel_type); }
   if (customer_type) { conditions.push("c.customer_type = ?"); params.push(customer_type); }
+  if (apr_band) { conditions.push("c.apr_band = ?"); params.push(apr_band); }
+  if (deposit_band) { conditions.push("c.deposit_band = ?"); params.push(deposit_band); }
+  if (repayment_band) { conditions.push("c.repayment_band = ?"); params.push(repayment_band); }
+  if (has_px === '1') conditions.push("c.has_px = 1");
+  else if (has_px === '0') conditions.push("c.has_px = 0");
+  if (vehicle_age_band) { conditions.push("c.vehicle_age_band = ?"); params.push(vehicle_age_band); }
+  if (mileage_band) { conditions.push("c.mileage_band = ?"); params.push(mileage_band); }
+  if (merc_type) { conditions.push("c.merc_type = ?"); params.push(merc_type); }
+  if (gender) { conditions.push("c.gender = ?"); params.push(gender); }
+  if (owner_tenant) { conditions.push("c.owner_tenant = ?"); params.push(owner_tenant); }
 
   conditions.push(...exclusionConditions);
 

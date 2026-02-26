@@ -8,7 +8,12 @@ const { getExplorerData, ALLOWED_GROUP_BY } = require('../dal/nfr-queries');
 const router = express.Router();
 
 router.get('/api/explorer', asyncHandler((req, res) => {
-  const { groupBy, year, region, make, agreement_type, term_band, new_used, termination, fuel_type, customer_type } = req.query;
+  const {
+    groupBy, year, region, make, agreement_type, term_band, new_used,
+    termination, fuel_type, customer_type,
+    apr_band, deposit_band, repayment_band, has_px, vehicle_age_band,
+    mileage_band, merc_type, gender, owner_tenant,
+  } = req.query;
 
   if (!groupBy) {
     return res.status(400).json({ error: 'groupBy parameter is required' });
@@ -16,7 +21,12 @@ router.get('/api/explorer', asyncHandler((req, res) => {
 
   const result = getExplorerData(req.retainedCol, req.filterConditions, {
     groupBy,
-    filters: { year, region, make, agreement_type, term_band, new_used, termination, fuel_type, customer_type },
+    filters: {
+      year, region, make, agreement_type, term_band, new_used,
+      termination, fuel_type, customer_type,
+      apr_band, deposit_band, repayment_band, has_px, vehicle_age_band,
+      mileage_band, merc_type, gender, owner_tenant,
+    },
   });
 
   if (result === null) {

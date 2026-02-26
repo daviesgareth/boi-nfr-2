@@ -132,6 +132,61 @@ const CUST_TYPE_MAP = {
   'H': 'Consumer', 'C': 'Company', 'ST': 'Sole Trader',
 };
 
+function getAprBand(apr) {
+  if (apr == null || apr === '' || isNaN(apr)) return null;
+  const v = Number(apr);
+  if (v <= 0) return null;
+  if (v < 5) return '0-5%';
+  if (v < 10) return '5-10%';
+  if (v < 15) return '10-15%';
+  if (v < 20) return '15-20%';
+  return '20%+';
+}
+
+function getDepositBand(deposit, creditAmt) {
+  if (deposit == null || creditAmt == null || creditAmt <= 0) return null;
+  const d = Number(deposit);
+  if (isNaN(d) || d <= 0) return 'No deposit';
+  const pct = (d / (d + Number(creditAmt))) * 100;
+  if (pct < 10) return '<10%';
+  if (pct < 20) return '10-20%';
+  if (pct < 30) return '20-30%';
+  return '30%+';
+}
+
+function getRepaymentBand(repayment) {
+  if (repayment == null || repayment === '' || isNaN(repayment)) return null;
+  const v = Number(repayment);
+  if (v <= 0) return null;
+  if (v < 200) return '<£200';
+  if (v < 300) return '£200-300';
+  if (v < 400) return '£300-400';
+  if (v < 500) return '£400-500';
+  return '£500+';
+}
+
+function getMileageBand(mileage) {
+  if (mileage == null || mileage === '' || isNaN(mileage)) return null;
+  const v = Number(mileage);
+  if (v <= 0) return null;
+  if (v < 10000) return '<10k';
+  if (v < 30000) return '10-30k';
+  if (v < 60000) return '30-60k';
+  if (v < 100000) return '60-100k';
+  return '100k+';
+}
+
+function getVehicleAgeBand(age) {
+  if (age == null || age === '' || isNaN(age)) return null;
+  const v = Number(age);
+  if (v < 0) return null;
+  if (v === 0) return 'New';
+  if (v <= 2) return '1-2 years';
+  if (v <= 5) return '3-5 years';
+  if (v <= 10) return '6-10 years';
+  return '10+ years';
+}
+
 function ingestFile(filePath) {
   const workbook = XLSX.readFile(filePath);
   const sheetName = workbook.SheetNames[0];
@@ -145,14 +200,22 @@ function ingestFile(filePath) {
       finance_type, agreement_type, new_used, make, model, dealer_ref,
       dealer_name, dealer_group, is_open, how_closed, ended_early, region, term_band,
       cust_age_at_app, age_over_75, in_arrears, is_deceased, marketing_optout,
-      fuel_type, customer_type
+      fuel_type, customer_type,
+      apr, apr_band, cash_deposit, deposit_band, px_value, has_px,
+      repayment, repayment_band, merc_type, mileage, mileage_band,
+      vehicle_age, vehicle_age_band, gender, marital_status, occupation,
+      owner_tenant, rep_code
     ) VALUES (
       @contract_id, @sortname, @phone, @postcode, @bank_sortcode, @account_number,
       @start_date, @end_date, @term_months, @credit_amount, @residual_amount,
       @finance_type, @agreement_type, @new_used, @make, @model, @dealer_ref,
       @dealer_name, @dealer_group, @is_open, @how_closed, @ended_early, @region, @term_band,
       @cust_age_at_app, @age_over_75, @in_arrears, @is_deceased, @marketing_optout,
-      @fuel_type, @customer_type
+      @fuel_type, @customer_type,
+      @apr, @apr_band, @cash_deposit, @deposit_band, @px_value, @has_px,
+      @repayment, @repayment_band, @merc_type, @mileage, @mileage_band,
+      @vehicle_age, @vehicle_age_band, @gender, @marital_status, @occupation,
+      @owner_tenant, @rep_code
     )
   `);
 
@@ -204,13 +267,31 @@ function ingestFile(filePath) {
     const ageOver75 = (custAgeAtApp != null && termMonths != null &&
       custAgeAtApp + Math.ceil(termMonths / 12) > 75) ? 1 : 0;
 
-    // Fuel type
-    const fuelCode = row['FUELTYPE'] != null ? String(row['FUELTYPE']).trim().toUpperCase() : null;
+    // Fuel type — Excel column is PETROLDIESEL, not FUELTYPE
+    const fuelCode = row['PETROLDIESEL'] != null ? String(row['PETROLDIESEL']).trim().toUpperCase() : null;
     const fuelType = fuelCode ? (FUEL_MAP[fuelCode] || fuelCode) : null;
 
-    // Customer type
-    const custTypeCode = row['CUSTOMERTYPE'] != null ? String(row['CUSTOMERTYPE']).trim().toUpperCase() : null;
+    // Customer type — Excel column is HIRERTYPE_, not CUSTOMERTYPE
+    const custTypeCode = row['HIRERTYPE_'] != null ? String(row['HIRERTYPE_']).trim().toUpperCase() : null;
     const customerType = custTypeCode ? (CUST_TYPE_MAP[custTypeCode] || custTypeCode) : null;
+
+    // Financial details
+    const apr = row['APR'] != null ? Number(row['APR']) : null;
+    const cashDeposit = row['CASHDEPOSIT'] != null ? Number(row['CASHDEPOSIT']) : null;
+    const pxValue = row['PX'] != null ? Number(row['PX']) : null;
+    const repayment = row['Repayment'] != null ? Number(row['Repayment']) : null;
+
+    // Vehicle details
+    const mercType = row['MERCTYPE'] || null;
+    const mileage = row['MILEAGE'] != null && row['MILEAGE'] !== '' ? Number(row['MILEAGE']) : null;
+    const vehicleAge = row['AGE'] != null && row['AGE'] !== '' ? Number(row['AGE']) : null;
+
+    // Demographics
+    const gender = row['MALEFEMALE'] != null ? String(row['MALEFEMALE']).trim().toUpperCase() : null;
+    const maritalStatus = row['MARITALSTATUS'] || null;
+    const occupation = row['OCCUPATION'] || null;
+    const ownerTenant = row['OWNERTENANT'] != null ? String(row['OWNERTENANT']).trim().toUpperCase() : null;
+    const repCode = row['REP'] != null ? String(row['REP']).trim() : null;
 
     return {
       contract_id: contractId,
@@ -244,6 +325,24 @@ function ingestFile(filePath) {
       marketing_optout: 0,
       fuel_type: fuelType,
       customer_type: customerType,
+      apr: apr,
+      apr_band: getAprBand(apr),
+      cash_deposit: cashDeposit,
+      deposit_band: getDepositBand(cashDeposit, creditAmount),
+      px_value: pxValue,
+      has_px: (pxValue != null && pxValue > 0) ? 1 : 0,
+      repayment: repayment,
+      repayment_band: getRepaymentBand(repayment),
+      merc_type: mercType,
+      mileage: mileage,
+      mileage_band: getMileageBand(mileage),
+      vehicle_age: vehicleAge,
+      vehicle_age_band: getVehicleAgeBand(vehicleAge),
+      gender: gender === 'M' ? 'Male' : gender === 'F' ? 'Female' : gender,
+      marital_status: maritalStatus,
+      occupation: occupation,
+      owner_tenant: ownerTenant === 'O' ? 'Owner' : ownerTenant === 'T' ? 'Tenant' : ownerTenant,
+      rep_code: repCode,
     };
   }).filter(Boolean);
 
