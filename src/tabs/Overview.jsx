@@ -205,13 +205,13 @@ export default function Overview() {
                   label={{ value: 'Months from contract end', position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: C.textMuted } }}
                   tickFormatter={v => v === 0 ? '0' : v > 0 ? `+${v}` : `${v}`}
                 />
-                <YAxis yAxisId="left" {...axisProps} unit="%" domain={[0, 'auto']} />
+                <YAxis yAxisId="left" {...axisProps} unit="%" domain={[0, dataMax => Math.ceil(dataMax * 1.2)]} />
                 <YAxis
                   yAxisId="right"
                   orientation="right"
                   {...axisProps}
                   scale="log"
-                  domain={[1, 'auto']}
+                  domain={[1, dataMax => Math.ceil(dataMax * 1.5)]}
                   allowDataOverflow
                   tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : Math.round(v)}
                 />
