@@ -156,5 +156,41 @@ export const axisProps = {
   tickLine: false,
 };
 
+// Live password-policy checklist — shows tick/cross for each rule as the user types
+export const PasswordChecklist = ({ value, compact }) => {
+  const rules = [
+    { label: '8+ characters', met: value.length >= 8 },
+    { label: 'Uppercase letter', met: /[A-Z]/.test(value) },
+    { label: 'Lowercase letter', met: /[a-z]/.test(value) },
+    { label: 'Number', met: /[0-9]/.test(value) },
+  ];
+  if (!value) return null;
+  const gap = compact ? 2 : 4;
+  const fontSize = compact ? 10 : 11;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap, marginTop: 4 }}>
+      {rules.map((r) => (
+        <span key={r.label} style={{
+          display: 'inline-flex', alignItems: 'center', gap: 3,
+          fontSize, fontWeight: 600,
+          color: r.met ? C.green : C.textMuted,
+          transition: 'color 0.15s',
+        }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: compact ? 12 : 14, height: compact ? 12 : 14, borderRadius: '50%',
+            background: r.met ? C.greenBg : C.bg,
+            border: `1px solid ${r.met ? C.green : C.border}`,
+            fontSize: compact ? 7 : 8, lineHeight: 1, transition: 'all 0.15s',
+          }}>
+            {r.met ? '\u2713' : ''}
+          </span>
+          {r.label}
+        </span>
+      ))}
+    </div>
+  );
+};
+
 // Re-export C for direct color access
 export { C };

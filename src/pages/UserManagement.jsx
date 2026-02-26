@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fetchAPI, postAPI, putAPI, deleteAPI } from '../api';
-import { Crd, Sec, Callout, C } from '../components/shared';
+import { Crd, Sec, Callout, C, PasswordChecklist } from '../components/shared';
 import LoadingState from '../components/LoadingState';
 
 const ROLES = ['admin', 'analyst', 'viewer'];
@@ -184,6 +184,7 @@ export default function UserManagement() {
             <div>
               <label style={labelStyle}>Password</label>
               <input style={inputStyle} type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} required minLength={8} />
+              <PasswordChecklist value={form.password} />
             </div>
             <div>
               <label style={labelStyle}>Role</label>
@@ -283,6 +284,7 @@ export default function UserManagement() {
                         minLength={8}
                         placeholder="••••••"
                       />
+                      <PasswordChecklist value={editForm.password} />
                     </div>
                     <div>
                       <label style={labelStyle}>Role</label>

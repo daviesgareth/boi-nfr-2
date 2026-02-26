@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchAPI, putAPI } from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import { useFilters } from '../contexts/FilterContext';
+import { PasswordChecklist } from '../components/shared';
 import { Filter, ChevronDown, LogOut, User, Key, Check, AlertTriangle } from 'lucide-react';
 
 const selStyle = {
@@ -359,6 +360,7 @@ export default function Header() {
                           onChange={e => setPwForm(f => ({ ...f, new: e.target.value }))}
                           style={{ ...inputStyle, marginTop: 3 }}
                         />
+                        <PasswordChecklist value={pwForm.new} compact />
                       </div>
                       <div style={{ marginBottom: 10 }}>
                         <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Confirm New Password</label>
