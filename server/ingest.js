@@ -120,6 +120,18 @@ function computeEndedEarly(isClosed, startDate, endDate, termMonths) {
   return end.getTime() < expectedEndMs ? 1 : 0;
 }
 
+const FUEL_MAP = {
+  'P': 'Petrol', 'D': 'Diesel', 'E': 'Electric',
+  'F': 'Petrol/Bio Ethanol', 'G': 'Petrol/CNG',
+  'H': 'Hybrid (Petrol/Electric)', 'X': 'Petrol/Plugin Electric',
+  'Y': 'Diesel/Electric', 'Z': 'Diesel/Plugin Electric',
+  'B': 'Bi Fuel (Petrol/LPG)',
+};
+
+const CUST_TYPE_MAP = {
+  'H': 'Consumer', 'C': 'Company', 'ST': 'Sole Trader',
+};
+
 function ingestFile(filePath) {
   const workbook = XLSX.readFile(filePath);
   const sheetName = workbook.SheetNames[0];
@@ -132,13 +144,15 @@ function ingestFile(filePath) {
       start_date, end_date, term_months, credit_amount, residual_amount,
       finance_type, agreement_type, new_used, make, model, dealer_ref,
       dealer_name, dealer_group, is_open, how_closed, ended_early, region, term_band,
-      cust_age_at_app, age_over_75, in_arrears, is_deceased, marketing_optout
+      cust_age_at_app, age_over_75, in_arrears, is_deceased, marketing_optout,
+      fuel_type, customer_type
     ) VALUES (
       @contract_id, @sortname, @phone, @postcode, @bank_sortcode, @account_number,
       @start_date, @end_date, @term_months, @credit_amount, @residual_amount,
       @finance_type, @agreement_type, @new_used, @make, @model, @dealer_ref,
       @dealer_name, @dealer_group, @is_open, @how_closed, @ended_early, @region, @term_band,
-      @cust_age_at_app, @age_over_75, @in_arrears, @is_deceased, @marketing_optout
+      @cust_age_at_app, @age_over_75, @in_arrears, @is_deceased, @marketing_optout,
+      @fuel_type, @customer_type
     )
   `);
 
@@ -190,6 +204,14 @@ function ingestFile(filePath) {
     const ageOver75 = (custAgeAtApp != null && termMonths != null &&
       custAgeAtApp + Math.ceil(termMonths / 12) > 75) ? 1 : 0;
 
+    // Fuel type
+    const fuelCode = row['FUELTYPE'] != null ? String(row['FUELTYPE']).trim().toUpperCase() : null;
+    const fuelType = fuelCode ? (FUEL_MAP[fuelCode] || fuelCode) : null;
+
+    // Customer type
+    const custTypeCode = row['CUSTOMERTYPE'] != null ? String(row['CUSTOMERTYPE']).trim().toUpperCase() : null;
+    const customerType = custTypeCode ? (CUST_TYPE_MAP[custTypeCode] || custTypeCode) : null;
+
     return {
       contract_id: contractId,
       sortname,
@@ -220,6 +242,8 @@ function ingestFile(filePath) {
       in_arrears: 0,
       is_deceased: 0,
       marketing_optout: 0,
+      fuel_type: fuelType,
+      customer_type: customerType,
     };
   }).filter(Boolean);
 

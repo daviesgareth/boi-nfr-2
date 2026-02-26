@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fetchAPI } from '../api';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Legend, Cell, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Legend, Cell, Line, PieChart, Pie } from 'recharts';
 import { Metric, Crd, Sec, CustomTooltip, Callout, nfrColor, fN, C, axisProps } from '../components/shared';
 
 const WINDOW_LABELS = {
@@ -18,6 +18,7 @@ const WINDOW_DEFS = {
 };
 
 const WIN_COLORS = [C.navy, C.iceDark, C.teal, C.purple];
+const FUEL_COLORS = [C.navy, '#3B82F6', C.teal, '#10B981', C.amber, C.purple, '#EC4899', '#6366F1', '#F97316', '#78716C'];
 
 export default function Overview({ window: win, excludeParam = '' }) {
   const [national, setNational] = useState(null);
@@ -26,6 +27,8 @@ export default function Overview({ window: win, excludeParam = '' }) {
   const [termination, setTermination] = useState(null);
   const [agreements, setAgreements] = useState([]);
   const [windowComp, setWindowComp] = useState([]);
+  const [fuelData, setFuelData] = useState([]);
+  const [custTypeData, setCustTypeData] = useState([]);
 
   useEffect(() => {
     fetchAPI(`/api/nfr/national?window=${win}${excludeParam}`).then(setNational).catch(() => {});
@@ -34,6 +37,8 @@ export default function Overview({ window: win, excludeParam = '' }) {
     fetchAPI(`/api/nfr/termination?window=${win}${excludeParam}`).then(setTermination).catch(() => {});
     fetchAPI(`/api/nfr/by-agreement?window=${win}${excludeParam}`).then(setAgreements).catch(() => {});
     fetchAPI(`/api/nfr/window-comparison?_=1${excludeParam}`).then(setWindowComp).catch(() => {});
+    fetchAPI(`/api/nfr/by-fuel?window=${win}${excludeParam}`).then(setFuelData).catch(() => {});
+    fetchAPI(`/api/nfr/by-customer-type?window=${win}${excludeParam}`).then(setCustTypeData).catch(() => {});
   }, [win, excludeParam]);
 
   if (!national) return <p style={{ textAlign: 'center', padding: 40, color: C.textMuted }}>Loading...</p>;
@@ -43,6 +48,14 @@ export default function Overview({ window: win, excludeParam = '' }) {
   const earlyMultiplier = termination && termination.full_term?.nfr_rate > 0
     ? (termination.early?.nfr_rate / termination.full_term.nfr_rate).toFixed(0)
     : null;
+
+  // Fuel data sorted by ended count desc for pie + bar
+  const fuelSorted = [...fuelData].sort((a, b) => (b.ended || 0) - (a.ended || 0));
+  const fuelPie = fuelSorted.map((f, i) => ({
+    name: f.fuel_type || 'Unknown',
+    value: f.ended || 0,
+    fill: FUEL_COLORS[i % FUEL_COLORS.length],
+  }));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -99,6 +112,102 @@ export default function Overview({ window: win, excludeParam = '' }) {
           </div>
         </Crd>
       </div>
+
+      {/* Fuel Type & Customer Type Breakdown - 2 column */}
+      {(fuelSorted.length > 0 || custTypeData.length > 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          {/* Fuel Type */}
+          {fuelSorted.length > 0 && (
+            <Crd>
+              <Sec sub="NFR retention rate by fuel type">Fuel Type Breakdown</Sec>
+              <div style={{ display: 'flex', gap: 16 }}>
+                {/* Pie chart for volume */}
+                <div style={{ width: 160, flexShrink: 0 }}>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <PieChart>
+                      <Pie
+                        data={fuelPie}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={70}
+                        innerRadius={35}
+                        stroke="none"
+                      >
+                        {fuelPie.map((entry, i) => (
+                          <Cell key={i} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(v) => fN(v)} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ textAlign: 'center', fontSize: 10, color: C.textMuted, marginTop: 2 }}>Volume by fuel</div>
+                </div>
+
+                {/* Mini table */}
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 55px', gap: '0', fontSize: 10, fontWeight: 700, color: C.textLight, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '0 0 6px', borderBottom: `1px solid ${C.borderLight}` }}>
+                    <div>Fuel</div>
+                    <div style={{ textAlign: 'right' }}>Ended</div>
+                    <div style={{ textAlign: 'right' }}>NFR %</div>
+                  </div>
+                  {fuelSorted.map((f, i) => (
+                    <div key={i} style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 60px 55px',
+                      padding: '6px 0',
+                      borderBottom: `1px solid ${C.borderLight}`,
+                      fontSize: 12,
+                      alignItems: 'center',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: 2, background: FUEL_COLORS[i % FUEL_COLORS.length], flexShrink: 0 }} />
+                        <span style={{ fontWeight: 600, color: C.navy, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.fuel_type || 'Unknown'}</span>
+                      </div>
+                      <div style={{ textAlign: 'right', color: C.textMid }}>{fN(f.ended)}</div>
+                      <div style={{ textAlign: 'right', fontWeight: 700, color: nfrColor(f.nfr_rate) }}>{f.nfr_rate}%</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Crd>
+          )}
+
+          {/* Customer Type */}
+          {custTypeData.length > 0 && (
+            <Crd>
+              <Sec sub="NFR retention rate by customer type">Customer Type Breakdown</Sec>
+              <ResponsiveContainer width="100%" height={Math.max(140, custTypeData.length * 50)}>
+                <BarChart data={custTypeData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
+                  <XAxis type="number" {...axisProps} tickFormatter={v => `${v}%`} />
+                  <YAxis dataKey="customer_type" type="category" width={110} tick={{ fill: C.textMid, fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="nfr_rate" name="NFR %" radius={[0, 6, 6, 0]}>
+                    {custTypeData.map((entry, i) => (
+                      <Cell key={i} fill={nfrColor(entry.nfr_rate)} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              {/* Mini summary tiles */}
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${custTypeData.length}, 1fr)`, gap: 8, marginTop: 12 }}>
+                {custTypeData.map((ct, i) => (
+                  <div key={i} style={{
+                    background: C.bg, borderRadius: 8, padding: '10px 12px',
+                    borderLeft: `3px solid ${nfrColor(ct.nfr_rate)}`,
+                  }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: C.textLight, textTransform: 'uppercase' }}>{ct.customer_type || 'Unknown'}</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: nfrColor(ct.nfr_rate), marginTop: 2 }}>{ct.nfr_rate}%</div>
+                    <div style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>{fN(ct.ended)} ended</div>
+                  </div>
+                ))}
+              </div>
+            </Crd>
+          )}
+        </div>
+      )}
 
       {/* Window Comparison Section */}
       {windowComp.length > 0 && (

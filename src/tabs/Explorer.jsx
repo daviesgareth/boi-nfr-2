@@ -11,9 +11,11 @@ const GROUP_OPTIONS = [
   { id: 'year', label: 'Year' },
   { id: 'new_used', label: 'New/Used' },
   { id: 'termination', label: 'Termination' },
+  { id: 'fuel_type', label: 'Fuel Type' },
+  { id: 'customer_type', label: 'Customer Type' },
 ];
 
-const INITIAL_FILTERS = { year: '', region: '', make: '', agreement_type: '', term_band: '', new_used: '', termination: '' };
+const INITIAL_FILTERS = { year: '', region: '', make: '', agreement_type: '', term_band: '', new_used: '', termination: '', fuel_type: '', customer_type: '' };
 
 const exSel = {
   background: '#FFFFFF',
@@ -42,13 +44,17 @@ export default function Explorer({ window: win, excludeParam = '' }) {
       fetchAPI(`/api/nfr/by-term?window=${win}${excludeParam}`).catch(() => []),
       fetchAPI(`/api/nfr/by-year?window=${win}${excludeParam}`).catch(() => []),
       fetchAPI(`/api/nfr/by-make?window=${win}${excludeParam}`).catch(() => []),
-    ]).then(([regions, agreements, terms, years, makes]) => {
+      fetchAPI(`/api/nfr/by-fuel?window=${win}${excludeParam}`).catch(() => []),
+      fetchAPI(`/api/nfr/by-customer-type?window=${win}${excludeParam}`).catch(() => []),
+    ]).then(([regions, agreements, terms, years, makes, fuels, custTypes]) => {
       setFilterOptions({
         regions: regions.map(r => r.region).filter(Boolean),
         agreements: agreements.map(a => a.agreement_type).filter(Boolean),
         terms: terms.map(t => t.term_band).filter(Boolean),
         years: years.map(y => String(y.year)).filter(Boolean),
         makes: makes.map(m => m.make).filter(Boolean),
+        fuels: fuels.map(f => f.fuel_type).filter(Boolean),
+        custTypes: custTypes.map(ct => ct.customer_type).filter(Boolean),
       });
     });
   }, [win, excludeParam]);
@@ -89,6 +95,8 @@ export default function Explorer({ window: win, excludeParam = '' }) {
     { key: 'term_band', label: 'Term', options: filterOptions.terms, placeholder: 'All Terms' },
     { key: 'new_used', label: 'New/Used', options: null, placeholder: 'Both' },
     { key: 'termination', label: 'Termination', options: null, placeholder: 'All' },
+    { key: 'fuel_type', label: 'Fuel Type', options: filterOptions.fuels, placeholder: 'All Fuels' },
+    { key: 'customer_type', label: 'Cust. Type', options: filterOptions.custTypes, placeholder: 'All Types' },
   ];
 
   return (
@@ -119,8 +127,8 @@ export default function Explorer({ window: win, excludeParam = '' }) {
           </button>
         </div>
 
-        {/* 7-column filter grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10 }}>
+        {/* Filter grid — 2 rows for 9 filters */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
           {FILTER_DEFS.map(f => (
             <div key={f.key}>
               <div style={{ fontSize: 10, fontWeight: 700, color: C.textLight, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>{f.label}</div>

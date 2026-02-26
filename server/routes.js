@@ -51,6 +51,9 @@ function getExclusionConditions(query) {
       case 'arrears': conditions.push('c.in_arrears = 0'); break;
       case 'deceased': conditions.push('c.is_deceased = 0'); break;
       case 'optout': conditions.push('c.marketing_optout = 0'); break;
+      case 'consumer': conditions.push("COALESCE(c.customer_type, '') != 'Consumer'"); break;
+      case 'company': conditions.push("COALESCE(c.customer_type, '') != 'Company'"); break;
+      case 'soletrader': conditions.push("COALESCE(c.customer_type, '') != 'Sole Trader'"); break;
     }
   }
   return conditions;
@@ -390,6 +393,76 @@ router.get('/api/nfr/by-make', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/nfr/by-fuel  -- NFR rate by fuel type
+// ---------------------------------------------------------------------------
+router.get('/api/nfr/by-fuel', (req, res) => {
+  try {
+    const retainedCol = getRetainedCol(req.query.window);
+    const excl = buildExclusionClause(req.query);
+    const rows = db.prepare(`
+      SELECT
+        c.fuel_type,
+        COUNT(*) AS ended,
+        SUM(n.${retainedCol}) AS retained
+      FROM contracts c
+      JOIN nfr_results n ON n.contract_id = c.contract_id
+      WHERE c.is_open = 0${excl}
+        AND c.fuel_type IS NOT NULL
+        AND c.fuel_type != ''
+      GROUP BY c.fuel_type
+      ORDER BY (CAST(SUM(n.${retainedCol}) AS REAL) / COUNT(*)) DESC
+    `).all();
+
+    const result = rows.map(r => ({
+      fuel_type: r.fuel_type,
+      ended: r.ended,
+      retained: r.retained || 0,
+      nfr_rate: r.ended > 0 ? Math.round(((r.retained || 0) / r.ended) * 10000) / 100 : 0
+    }));
+
+    res.json(result);
+  } catch (err) {
+    console.error('By-fuel NFR error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/nfr/by-customer-type  -- NFR rate by customer type
+// ---------------------------------------------------------------------------
+router.get('/api/nfr/by-customer-type', (req, res) => {
+  try {
+    const retainedCol = getRetainedCol(req.query.window);
+    const excl = buildExclusionClause(req.query);
+    const rows = db.prepare(`
+      SELECT
+        c.customer_type,
+        COUNT(*) AS ended,
+        SUM(n.${retainedCol}) AS retained
+      FROM contracts c
+      JOIN nfr_results n ON n.contract_id = c.contract_id
+      WHERE c.is_open = 0${excl}
+        AND c.customer_type IS NOT NULL
+        AND c.customer_type != ''
+      GROUP BY c.customer_type
+      ORDER BY (CAST(SUM(n.${retainedCol}) AS REAL) / COUNT(*)) DESC
+    `).all();
+
+    const result = rows.map(r => ({
+      customer_type: r.customer_type,
+      ended: r.ended,
+      retained: r.retained || 0,
+      nfr_rate: r.ended > 0 ? Math.round(((r.retained || 0) / r.ended) * 10000) / 100 : 0
+    }));
+
+    res.json(result);
+  } catch (err) {
+    console.error('By-customer-type NFR error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/nfr/transitions  -- retention transition breakdown
 // ---------------------------------------------------------------------------
 router.get('/api/nfr/transitions', (req, res) => {
@@ -582,7 +655,7 @@ router.get('/api/nfr/window-comparison', (req, res) => {
 // ---------------------------------------------------------------------------
 router.get('/api/explorer', (req, res) => {
   try {
-    const { year, region, make, agreement_type, term_band, new_used, termination, groupBy } = req.query;
+    const { year, region, make, agreement_type, term_band, new_used, termination, fuel_type, customer_type, groupBy } = req.query;
     const retainedCol = getRetainedCol(req.query.window);
 
     if (!groupBy) {
@@ -599,7 +672,9 @@ router.get('/api/explorer', (req, res) => {
       new_used: "c.new_used",
       dealer_group: "c.dealer_group",
       dealer_name: "c.dealer_name",
-      termination: "CASE WHEN c.ended_early = 1 THEN 'Early Termination' ELSE 'Full Term' END"
+      termination: "CASE WHEN c.ended_early = 1 THEN 'Early Termination' ELSE 'Full Term' END",
+      fuel_type: "c.fuel_type",
+      customer_type: "c.customer_type"
     };
 
     const groupExpr = allowedGroupBy[groupBy];
@@ -638,6 +713,14 @@ router.get('/api/explorer', (req, res) => {
       conditions.push("c.ended_early = 1");
     } else if (termination === 'full') {
       conditions.push("c.ended_early = 0");
+    }
+    if (fuel_type) {
+      conditions.push("c.fuel_type = ?");
+      params.push(fuel_type);
+    }
+    if (customer_type) {
+      conditions.push("c.customer_type = ?");
+      params.push(customer_type);
     }
 
     // Add exclusion conditions

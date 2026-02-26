@@ -62,6 +62,17 @@ function initDB() {
     `);
   }
 
+  // --- Migrate contracts: add fuel_type and customer_type if missing ---
+  const contractInfo2 = db.prepare("PRAGMA table_info(contracts)").all();
+  const hasFuelCol = contractInfo2.some(c => c.name === 'fuel_type');
+  if (!hasFuelCol) {
+    console.log('Adding fuel_type and customer_type columns to contracts...');
+    db.exec(`
+      ALTER TABLE contracts ADD COLUMN fuel_type TEXT;
+      ALTER TABLE contracts ADD COLUMN customer_type TEXT;
+    `);
+  }
+
   // --- Migrate nfr_results: detect old/missing schema and recreate if needed ---
   const tableInfo = db.prepare("PRAGMA table_info(nfr_results)").all();
   const hasOldCols = tableInfo.some(c => c.name === 'retained_1mo');
@@ -120,6 +131,8 @@ function initDB() {
     CREATE INDEX IF NOT EXISTS idx_contracts_term_band ON contracts(term_band);
     CREATE INDEX IF NOT EXISTS idx_contracts_new_used ON contracts(new_used);
     CREATE INDEX IF NOT EXISTS idx_contracts_is_open ON contracts(is_open);
+    CREATE INDEX IF NOT EXISTS idx_contracts_fuel_type ON contracts(fuel_type);
+    CREATE INDEX IF NOT EXISTS idx_contracts_customer_type ON contracts(customer_type);
   `);
 
   console.log('Database initialized successfully');
