@@ -5,7 +5,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { asyncHandler } = require('../middleware/error-handler');
 const { authenticate, signToken } = require('../middleware/auth');
-const { findByUsername } = require('../dal/user-queries');
+const { findByUsername, updatePassword } = require('../dal/user-queries');
+const { logAction } = require('../dal/audit-queries');
 
 const router = express.Router();
 
@@ -51,6 +52,33 @@ router.get('/api/auth/me', authenticate, asyncHandler((req, res) => {
     return res.status(401).json({ error: 'User no longer exists' });
   }
   res.json({ user: { id: user.id, username: user.username, email: user.email, role: user.role } });
+}));
+
+// PUT /api/auth/password — change own password (requires valid token + current password)
+router.put('/api/auth/password', authenticate, asyncHandler((req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current password and new password are required' });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  }
+
+  const user = findByUsername(req.user.username);
+  if (!user) {
+    return res.status(401).json({ error: 'User no longer exists' });
+  }
+
+  const valid = bcrypt.compareSync(currentPassword, user.password_hash);
+  if (!valid) {
+    return res.status(401).json({ error: 'Current password is incorrect' });
+  }
+
+  const hash = bcrypt.hashSync(newPassword, 10);
+  updatePassword(user.id, hash);
+  logAction(user.id, user.username, 'password_self_change', 'user', 'User changed their own password');
+  res.json({ message: 'Password changed successfully' });
 }));
 
 module.exports = router;

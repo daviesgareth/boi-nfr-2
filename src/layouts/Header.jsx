@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchAPI } from '../api';
+import { fetchAPI, putAPI } from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import { useFilters } from '../contexts/FilterContext';
-import { Filter, ChevronDown, LogOut } from 'lucide-react';
+import { Filter, ChevronDown, LogOut, User, Key, Check, AlertTriangle } from 'lucide-react';
 
 const selStyle = {
   background: 'var(--white)',
@@ -16,6 +16,13 @@ const selStyle = {
   outline: 'none',
   minWidth: 150,
   fontFamily: 'var(--font)',
+};
+
+const inputStyle = {
+  width: '100%', padding: '7px 10px', borderRadius: 6,
+  border: '1px solid var(--border)', fontSize: 12,
+  fontFamily: 'var(--font)', color: 'var(--navy)', outline: 'none',
+  boxSizing: 'border-box',
 };
 
 const EXCLUSION_GROUPS = [
@@ -43,7 +50,14 @@ export default function Header() {
   const { window, setWindow, timeframe, setTimeframe, exclusions, toggleExclusion, clearExclusions } = useFilters();
   const [status, setStatus] = useState(null);
   const [showExclDropdown, setShowExclDropdown] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: '', new: '', confirm: '' });
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
   const dropRef = useRef(null);
+  const userMenuRef = useRef(null);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -59,12 +73,71 @@ export default function Header() {
       if (dropRef.current && !dropRef.current.contains(e.target)) {
         setShowExclDropdown(false);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setShowUserMenu(false);
+        setShowPasswordForm(false);
+        setPwError('');
+        setPwSuccess(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    setPwError('');
+    setPwSuccess(false);
+
+    if (!pwForm.current || !pwForm.new) {
+      setPwError('All fields are required');
+      return;
+    }
+    if (pwForm.new.length < 6) {
+      setPwError('New password must be at least 6 characters');
+      return;
+    }
+    if (pwForm.new !== pwForm.confirm) {
+      setPwError('New passwords do not match');
+      return;
+    }
+
+    setPwLoading(true);
+    try {
+      await putAPI('/api/auth/password', {
+        currentPassword: pwForm.current,
+        newPassword: pwForm.new,
+      });
+      setPwSuccess(true);
+      setPwForm({ current: '', new: '', confirm: '' });
+      setTimeout(() => {
+        setShowPasswordForm(false);
+        setShowUserMenu(false);
+        setPwSuccess(false);
+      }, 1500);
+    } catch (err) {
+      setPwError(err.message || 'Failed to change password');
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
   const exclCount = exclusions.length;
+
+  const roleBadge = (role) => {
+    const colors = {
+      admin: { bg: '#FEF2F2', color: '#DC2626' },
+      analyst: { bg: '#DBEAFE', color: '#1E40AF' },
+      viewer: { bg: '#F4F6F9', color: '#3D5A7C' },
+    };
+    const c = colors[role] || colors.viewer;
+    return (
+      <span style={{
+        padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700,
+        background: c.bg, color: c.color, textTransform: 'uppercase',
+      }}>{role}</span>
+    );
+  };
 
   return (
     <>
@@ -209,20 +282,148 @@ export default function Header() {
               {status.total_contracts?.toLocaleString()} Contracts
             </div>
           )}
-          {/* User info + logout */}
+
+          {/* User menu dropdown */}
           {user && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>{user.username}</span>
+            <div ref={userMenuRef} style={{ position: 'relative' }}>
               <button
-                onClick={logout}
+                onClick={() => { setShowUserMenu(v => !v); setShowPasswordForm(false); setPwError(''); setPwSuccess(false); }}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
-                  background: 'transparent', border: `1px solid var(--border)`, borderRadius: 6,
-                  color: 'var(--text-light)', cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font)',
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px',
+                  background: showUserMenu ? 'rgba(0,53,95,0.06)' : 'transparent',
+                  border: '1px solid var(--border)', borderRadius: 6,
+                  color: 'var(--navy)', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font)',
                 }}
               >
-                <LogOut size={12} />
+                <User size={13} />
+                {user.username}
+                <ChevronDown size={11} style={{ color: 'var(--text-muted)', transform: showUserMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
               </button>
+
+              {showUserMenu && (
+                <div style={{
+                  position: 'absolute', top: '100%', right: 0, marginTop: 6,
+                  background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 10,
+                  boxShadow: '0 8px 24px rgba(0,53,95,0.12)', width: 260, zIndex: 200,
+                  overflow: 'hidden',
+                }}>
+                  {/* User info header */}
+                  <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>{user.username}</span>
+                      {roleBadge(user.role)}
+                    </div>
+                    {user.email && (
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{user.email}</div>
+                    )}
+                  </div>
+
+                  {/* Password change section */}
+                  {!showPasswordForm ? (
+                    <button
+                      onClick={() => { setShowPasswordForm(true); setPwError(''); setPwSuccess(false); setPwForm({ current: '', new: '', confirm: '' }); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 16px',
+                        background: 'transparent', border: 'none', cursor: 'pointer',
+                        fontFamily: 'var(--font)', fontSize: 12, color: 'var(--navy)', fontWeight: 500, textAlign: 'left',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <Key size={13} color="var(--text-light)" />
+                      Change Password
+                    </button>
+                  ) : (
+                    <form onSubmit={handlePasswordChange} style={{ padding: '12px 16px' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--navy)', marginBottom: 10 }}>Change Password</div>
+
+                      <div style={{ marginBottom: 8 }}>
+                        <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Current Password</label>
+                        <input
+                          type="password"
+                          value={pwForm.current}
+                          onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
+                          style={{ ...inputStyle, marginTop: 3 }}
+                          autoFocus
+                        />
+                      </div>
+                      <div style={{ marginBottom: 8 }}>
+                        <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>New Password</label>
+                        <input
+                          type="password"
+                          value={pwForm.new}
+                          onChange={e => setPwForm(f => ({ ...f, new: e.target.value }))}
+                          style={{ ...inputStyle, marginTop: 3 }}
+                        />
+                      </div>
+                      <div style={{ marginBottom: 10 }}>
+                        <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Confirm New Password</label>
+                        <input
+                          type="password"
+                          value={pwForm.confirm}
+                          onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                          style={{ ...inputStyle, marginTop: 3 }}
+                        />
+                      </div>
+
+                      {pwError && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--red)', marginBottom: 8 }}>
+                          <AlertTriangle size={12} /> {pwError}
+                        </div>
+                      )}
+                      {pwSuccess && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--green)', marginBottom: 8 }}>
+                          <Check size={12} /> Password changed successfully
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          type="submit"
+                          disabled={pwLoading}
+                          style={{
+                            flex: 1, padding: '7px 0', borderRadius: 6, border: 'none',
+                            background: 'var(--navy)', color: 'var(--white)',
+                            fontSize: 12, fontWeight: 600, cursor: pwLoading ? 'wait' : 'pointer',
+                            fontFamily: 'var(--font)', opacity: pwLoading ? 0.6 : 1,
+                          }}
+                        >
+                          {pwLoading ? 'Saving...' : 'Update'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswordForm(false)}
+                          style={{
+                            padding: '7px 12px', borderRadius: 6,
+                            border: '1px solid var(--border)', background: 'var(--white)',
+                            color: 'var(--text-light)', fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer', fontFamily: 'var(--font)',
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Logout */}
+                  <div style={{ borderTop: '1px solid var(--border)' }}>
+                    <button
+                      onClick={logout}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 16px',
+                        background: 'transparent', border: 'none', cursor: 'pointer',
+                        fontFamily: 'var(--font)', fontSize: 12, color: 'var(--red)', fontWeight: 500, textAlign: 'left',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--red-bg)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <LogOut size={13} />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
