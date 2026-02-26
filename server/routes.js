@@ -665,6 +665,34 @@ router.get('/api/explorer', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/exclusion-counts  -- counts per exclusion category
+// ---------------------------------------------------------------------------
+router.get('/api/exclusion-counts', (req, res) => {
+  try {
+    const row = db.prepare(`
+      SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN age_over_75 = 1 THEN 1 ELSE 0 END) AS over75,
+        SUM(CASE WHEN in_arrears = 1 THEN 1 ELSE 0 END) AS arrears,
+        SUM(CASE WHEN is_deceased = 1 THEN 1 ELSE 0 END) AS deceased,
+        SUM(CASE WHEN marketing_optout = 1 THEN 1 ELSE 0 END) AS optout
+      FROM contracts
+    `).get();
+
+    res.json({
+      total: row.total || 0,
+      over75: row.over75 || 0,
+      arrears: row.arrears || 0,
+      deceased: row.deceased || 0,
+      optout: row.optout || 0,
+    });
+  } catch (err) {
+    console.error('Exclusion counts error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/matching/stats  -- matching summary statistics
 // ---------------------------------------------------------------------------
 router.get('/api/matching/stats', (req, res) => {

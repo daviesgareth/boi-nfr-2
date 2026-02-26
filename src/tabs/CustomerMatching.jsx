@@ -27,9 +27,11 @@ const METHODS = [
 
 export default function CustomerMatching() {
   const [stats, setStats] = useState(null);
+  const [exclCounts, setExclCounts] = useState(null);
 
   useEffect(() => {
     fetchAPI('/api/matching/stats').then(setStats).catch(() => {});
+    fetchAPI('/api/exclusion-counts').then(setExclCounts).catch(() => {});
   }, []);
 
   if (!stats) return <p style={{ textAlign: 'center', padding: 40, color: C.textMuted }}>Loading...</p>;
@@ -81,6 +83,42 @@ export default function CustomerMatching() {
           );
         })}
       </Crd>
+
+      {/* Exclusion Counts */}
+      {exclCounts && (
+        <Crd>
+          <Sec sub="Contracts flagged for each exclusion category">Exclusion Flags</Sec>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            {[
+              { label: 'Over 75 at End', count: exclCounts.over75, color: C.red },
+              { label: 'In Arrears', count: exclCounts.arrears, color: C.amber },
+              { label: 'Deceased', count: exclCounts.deceased, color: C.textMid },
+              { label: 'Marketing Opt-out', count: exclCounts.optout, color: C.purple },
+            ].map(({ label, count, color }) => {
+              const pct = exclCounts.total > 0 ? ((count / exclCounts.total) * 100).toFixed(1) : 0;
+              return (
+                <div key={label} style={{
+                  background: C.bg,
+                  borderRadius: 10,
+                  padding: '14px 16px',
+                  borderLeft: `4px solid ${color}`,
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: C.textLight, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: C.navy, lineHeight: 1.2, marginTop: 4 }}>{fN(count)}</div>
+                  <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>{pct}% of {fN(exclCounts.total)} contracts</div>
+                </div>
+              );
+            })}
+          </div>
+          {exclCounts.over75 === 0 && exclCounts.arrears === 0 && exclCounts.deceased === 0 && exclCounts.optout === 0 && (
+            <Callout type="amber">
+              <div style={{ fontSize: 12, color: C.textMid }}>
+                <strong style={{ color: C.amber }}>Note:</strong> No exclusion flags are currently populated. Re-upload source data with the relevant columns to enable filtering.
+              </div>
+            </Callout>
+          )}
+        </Crd>
+      )}
     </div>
   );
 }

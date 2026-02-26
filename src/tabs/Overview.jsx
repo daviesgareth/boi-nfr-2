@@ -95,7 +95,7 @@ export default function Overview({ window: win, excludeParam = '' }) {
             </BarChart>
           </ResponsiveContainer>
           <div style={{ marginTop: 14, padding: 12, background: `${C.navy}06`, borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.5 }}>Most customers follow Used \u2192 Used. Minimal cross-over between new and used.</div>
+            <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.5 }}>Most customers follow Used {'\u2192'} Used. Minimal cross-over between new and used.</div>
           </div>
         </Crd>
       </div>
@@ -152,26 +152,35 @@ export default function Overview({ window: win, excludeParam = '' }) {
             {[
               { label: 'Early Terminators', data: termination.early, color: C.amber },
               { label: 'Full Term', data: termination.full_term, color: C.navy }
-            ].map(({ label, data, color }) => (
-              <div key={label}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: C.textMid }}>{label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: nfrColor(data.nfr_rate) }}>{data.nfr_rate}%</span>
-                </div>
-                <div style={{ background: C.bg, borderRadius: 4, height: 28, overflow: 'hidden' }}>
-                  <div style={{ width: `${Math.min(data.nfr_rate * 5, 100)}%`, height: '100%', background: color, borderRadius: 4, display: 'flex', alignItems: 'center', paddingLeft: 8 }}>
-                    <span style={{ fontSize: 11, color: 'white', fontWeight: 600 }}>{fN(data.retained)} / {fN(data.ended)}</span>
+            ].map(({ label, data, color }) => {
+              const barPct = Math.min(data.nfr_rate * 5, 100);
+              const textInside = barPct >= 25;
+              return (
+                <div key={label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: C.textMid }}>{label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: nfrColor(data.nfr_rate) }}>{data.nfr_rate}%</span>
+                  </div>
+                  <div style={{ background: C.bg, borderRadius: 4, height: 28, position: 'relative' }}>
+                    <div style={{ width: `${barPct}%`, height: '100%', background: color, borderRadius: 4, display: 'flex', alignItems: 'center', paddingLeft: textInside ? 8 : 0 }}>
+                      {textInside && (
+                        <span style={{ fontSize: 11, color: 'white', fontWeight: 600 }}>{fN(data.retained)} / {fN(data.ended)}</span>
+                      )}
+                    </div>
+                    {!textInside && (
+                      <span style={{ position: 'absolute', top: '50%', left: `calc(${barPct}% + 8px)`, transform: 'translateY(-50%)', fontSize: 11, color: C.textMid, fontWeight: 600 }}>{fN(data.retained)} / {fN(data.ended)}</span>
+                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
         {/* Critical callout */}
         {earlyMultiplier && (
           <Callout type="red">
             <div style={{ fontSize: 12, color: C.textMid }}>
-              <strong style={{ color: C.red }}>Critical:</strong> Early terminators are <strong>{earlyMultiplier}\u00d7 more likely</strong> to renew.
+              <strong style={{ color: C.red }}>Critical:</strong> Early terminators are <strong>{earlyMultiplier}{'\u00d7'} more likely</strong> to renew.
             </div>
           </Callout>
         )}
