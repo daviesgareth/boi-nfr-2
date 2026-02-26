@@ -1,7 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { initDB } = require('./db');
+const { initDB, db } = require('./db');
+const { runMatching } = require('./matching');
+const { computeNFR } = require('./nfr');
 const routes = require('./routes');
 
 const app = express();
@@ -28,6 +30,21 @@ app.get('/{*splat}', (req, res) => {
 
 // Initialize database and start server
 initDB();
+
+// Auto-recompute NFR if contracts exist but nfr_results is empty/stale
+try {
+  const contractCount = db.prepare('SELECT COUNT(*) AS c FROM contracts').get().c;
+  const nfrCount = db.prepare('SELECT COUNT(*) AS c FROM nfr_results').get().c;
+  if (contractCount > 0 && nfrCount === 0) {
+    console.log(`Found ${contractCount} contracts but 0 NFR results — recomputing...`);
+    runMatching();
+    const computed = computeNFR();
+    console.log(`Recomputed NFR for ${computed} contracts`);
+  }
+} catch (e) {
+  console.error('Auto-recompute check failed:', e.message);
+}
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
