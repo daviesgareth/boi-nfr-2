@@ -135,6 +135,31 @@ function initDB() {
     CREATE INDEX IF NOT EXISTS idx_contracts_customer_type ON contracts(customer_type);
   `);
 
+  // Create users table for authentication
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'viewer'
+        CHECK(role IN ('admin', 'analyst', 'viewer')),
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  // Seed default admin user if none exists
+  const bcrypt = require('bcryptjs');
+  const adminExists = db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'").get();
+  if (adminExists.c === 0) {
+    const password = process.env.ADMIN_PASSWORD || 'changeme';
+    const hash = bcrypt.hashSync(password, 10);
+    db.prepare("INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)")
+      .run('admin', 'admin@northridge.local', hash, 'admin');
+    console.log('Seeded default admin user (username: admin)');
+  }
+
   console.log('Database initialized successfully');
 }
 

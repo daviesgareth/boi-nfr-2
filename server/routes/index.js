@@ -1,10 +1,13 @@
 // ---------------------------------------------------------------------------
-// Route aggregator: wires all route modules + shared middleware
+// Route aggregator: wires all route modules + middleware (auth + params)
 // ---------------------------------------------------------------------------
 const express = require('express');
 const { parseNFRParams } = require('../middleware/params');
+const { authenticate, requireRole } = require('../middleware/auth');
 const { errorHandler } = require('../middleware/error-handler');
 
+const authRoutes = require('./auth');
+const userRoutes = require('./users');
 const nfrRoutes = require('./nfr');
 const explorerRoutes = require('./explorer');
 const matchingRoutes = require('./matching');
@@ -13,15 +16,27 @@ const statusRoutes = require('./status');
 
 const router = express.Router();
 
-// Parse window + exclusion params for all routes that need them
+// --- Public routes (no auth required) ---
+router.use(authRoutes);
+
+// --- All routes below require authentication ---
+router.use(authenticate);
+
+// Parse window + exclusion params for data routes
 router.use(parseNFRParams);
 
-// Wire route modules
+// All authenticated users can read data
 router.use(statusRoutes);
 router.use(nfrRoutes);
 router.use(explorerRoutes);
 router.use(matchingRoutes);
+
+// Admin-only: gate upload and user management by role
+// Applied as path-scoped middleware so it only triggers for matching paths
+router.use('/api/upload', requireRole('admin'));
 router.use(uploadRoutes);
+router.use('/api/users', requireRole('admin'));
+router.use(userRoutes);
 
 // Error handler (must be last)
 router.use(errorHandler);
