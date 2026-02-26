@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import {
-  BarChart, AreaChart, Area, Bar, LineChart, Line, ScatterChart, Scatter,
+  ComposedChart, AreaChart, Area, Bar, LineChart, Line, ScatterChart, Scatter,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ReferenceLine, ZAxis, Cell,
 } from 'recharts';
@@ -59,8 +59,8 @@ const ScatterTooltipContent = ({ active, payload }) => {
   );
 };
 
-// Tooltip for the cumulative curve
-const CumulativeTooltip = ({ active, payload }) => {
+// Combined tooltip for the retention curve (both cumulative + monthly)
+const CurveTooltipContent = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
   const d = payload[0]?.payload;
   if (!d) return null;
@@ -72,27 +72,8 @@ const CumulativeTooltip = ({ active, payload }) => {
       fontSize: 12, lineHeight: 1.6,
     }}>
       <div style={{ fontWeight: 700, color: C.navy }}>{label}</div>
-      <div style={{ color: C.textMid }}>Cumulative: <strong style={{ color: C.navy }}>{d.rate}%</strong></div>
-      <div style={{ color: C.textMuted }}>{fN(d.cumulative)} of {fN(d._total)} matched so far</div>
-    </div>
-  );
-};
-
-// Tooltip for the monthly distribution bars
-const MonthlyTooltip = ({ active, payload }) => {
-  if (!active || !payload?.length) return null;
-  const d = payload[0]?.payload;
-  if (!d) return null;
-  const label = d.month === 0 ? 'At end date' : d.month > 0 ? `+${d.month} months after` : `${d.month} months before`;
-  return (
-    <div style={{
-      background: 'white', border: `1px solid ${C.border}`, borderRadius: 8,
-      padding: '10px 14px', boxShadow: '0 4px 12px rgba(0,53,95,0.1)',
-      fontSize: 12, lineHeight: 1.6,
-    }}>
-      <div style={{ fontWeight: 700, color: C.navy }}>{label}</div>
-      <div style={{ color: C.textMid }}>Matched: <strong style={{ color: C.iceDark }}>{fN(d.count)}</strong> customers</div>
-      <div style={{ color: C.textMid }}>Monthly rate: <strong>{d.monthly_rate}%</strong> of all ended</div>
+      <div style={{ color: C.textMid }}>This month: <strong style={{ color: C.iceDark }}>{fN(d.count)}</strong> matched ({d.monthly_rate}%)</div>
+      <div style={{ color: C.textMid }}>Cumulative: <strong style={{ color: C.navy }}>{d.rate}%</strong> ({fN(d.cumulative)} total)</div>
     </div>
   );
 };
@@ -177,26 +158,20 @@ export default function Overview() {
 
       {/* 2. Retention Curve — the centrepiece */}
       {curveData && curveData.curve && (() => {
-        // Enrich curve data with monthly rate
+        // Enrich curve data with monthly rate + log-safe count
         const total = curveData.total || 1;
         const enrichedCurve = curveData.curve.map(p => ({
           ...p,
           monthly_rate: Math.round((p.count / total) * 10000) / 100,
-          _total: total,
+          logCount: Math.max(p.count, 0.5), // floor for log scale (0 → invisible)
         }));
         // Find peak month
         const peakMonth = enrichedCurve.reduce((best, p) => p.count > best.count ? p : best, { count: 0 });
 
-        const xAxisShared = {
-          dataKey: 'month',
-          ...axisProps,
-          tickFormatter: v => v === 0 ? '0' : v > 0 ? `+${v}` : `${v}`,
-        };
-
         return (
           <ChartCard
             title="Retention Curve"
-            subtitle="When do customers come back? Top: cumulative retention %. Bottom: monthly return distribution."
+            subtitle="When do customers come back? Bars = monthly matches (log scale), line = cumulative retention %"
           >
             {/* Legend */}
             <div style={{ display: 'flex', gap: 16, padding: '0 0 8px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -206,7 +181,7 @@ export default function Overview() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
                 <div style={{ width: 12, height: 12, background: C.iceDark, borderRadius: 2, opacity: 0.7 }} />
-                <span style={{ color: C.textMid, fontWeight: 600 }}>Monthly matches</span>
+                <span style={{ color: C.textMid, fontWeight: 600 }}>Monthly matches (log scale)</span>
               </div>
               {peakMonth.month != null && (
                 <div style={{ fontSize: 11, color: C.textMuted, marginLeft: 'auto' }}>
@@ -215,9 +190,8 @@ export default function Overview() {
               )}
             </div>
 
-            {/* Top chart: cumulative retention curve */}
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={enrichedCurve} margin={{ top: 10, right: 20, bottom: 0, left: 10 }}>
+            <ResponsiveContainer width="100%" height={360}>
+              <ComposedChart data={enrichedCurve} margin={{ top: 20, right: 20, bottom: 5, left: 10 }}>
                 <defs>
                   <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={C.navy} stopOpacity={0.15} />
@@ -225,29 +199,29 @@ export default function Overview() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
-                <XAxis {...xAxisShared} tick={false} height={0} />
-                <YAxis {...axisProps} unit="%" domain={[0, 'auto']} />
-                <Tooltip content={<CumulativeTooltip />} />
-                <ReferenceLine x={0} stroke={C.amber} strokeDasharray="4 4" strokeWidth={2}
-                  label={{ value: 'End date', position: 'top', style: { fontSize: 10, fill: C.amber, fontWeight: 700 } }}
-                />
-                <Area type="monotone" dataKey="rate" stroke={C.navy} strokeWidth={2.5} fill="url(#curveGrad)" dot={false} activeDot={{ r: 5, fill: C.navy }} />
-              </AreaChart>
-            </ResponsiveContainer>
-
-            {/* Bottom chart: monthly distribution bars */}
-            <ResponsiveContainer width="100%" height={140}>
-              <BarChart data={enrichedCurve} margin={{ top: 4, right: 20, bottom: 5, left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} vertical={false} />
                 <XAxis
-                  {...xAxisShared}
+                  dataKey="month"
+                  {...axisProps}
                   label={{ value: 'Months from contract end', position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: C.textMuted } }}
+                  tickFormatter={v => v === 0 ? '0' : v > 0 ? `+${v}` : `${v}`}
                 />
-                <YAxis {...axisProps} tickFormatter={v => fN(v)} />
-                <Tooltip content={<MonthlyTooltip />} />
-                <ReferenceLine x={0} stroke={C.amber} strokeDasharray="4 4" strokeWidth={1.5} />
-                <Bar dataKey="count" name="Monthly Matches" fill={C.iceDark} fillOpacity={0.7} radius={[3, 3, 0, 0]} barSize={14} />
-              </BarChart>
+                <YAxis yAxisId="left" {...axisProps} unit="%" domain={[0, 'auto']} />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  {...axisProps}
+                  scale="log"
+                  domain={[1, 'auto']}
+                  allowDataOverflow
+                  tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : Math.round(v)}
+                />
+                <Tooltip content={<CurveTooltipContent />} />
+                <ReferenceLine x={0} yAxisId="left" stroke={C.amber} strokeDasharray="4 4" strokeWidth={2}
+                  label={{ value: 'End date', position: 'insideTopRight', style: { fontSize: 10, fill: C.amber, fontWeight: 700 } }}
+                />
+                <Bar yAxisId="right" dataKey="logCount" name="Monthly Matches" fill={C.iceDark} fillOpacity={0.45} radius={[3, 3, 0, 0]} barSize={14} />
+                <Area yAxisId="left" type="monotone" dataKey="rate" stroke={C.navy} strokeWidth={2.5} fill="url(#curveGrad)" dot={false} activeDot={{ r: 5, fill: C.navy }} />
+              </ComposedChart>
             </ResponsiveContainer>
 
             {/* Milestone markers */}
