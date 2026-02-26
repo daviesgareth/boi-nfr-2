@@ -183,7 +183,7 @@ export default function UserManagement() {
             </div>
             <div>
               <label style={labelStyle}>Password</label>
-              <input style={inputStyle} type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} required minLength={6} />
+              <input style={inputStyle} type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} required minLength={8} />
             </div>
             <div>
               <label style={labelStyle}>Role</label>
@@ -280,7 +280,7 @@ export default function UserManagement() {
                         type="password"
                         value={editForm.password}
                         onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))}
-                        minLength={6}
+                        minLength={8}
                         placeholder="••••••"
                       />
                     </div>

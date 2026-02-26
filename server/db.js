@@ -1,9 +1,10 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const config = require('./env');
 
 // Ensure data directory exists — support DATA_DIR env var for Railway volume mount
-const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+const dataDir = config.dataDir;
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
@@ -210,7 +211,7 @@ function initDB() {
   const bcrypt = require('bcryptjs');
   const adminExists = db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'").get();
   if (adminExists.c === 0) {
-    const password = process.env.ADMIN_PASSWORD || 'changeme';
+    const password = config.adminPassword;
     const hash = bcrypt.hashSync(password, 10);
     db.prepare("INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)")
       .run('admin', 'admin@northridge.local', hash, 'admin');

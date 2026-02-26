@@ -7,6 +7,10 @@ const path = require('path');
 const { db } = require('../db');
 const { asyncHandler } = require('../middleware/error-handler');
 const { logAction, getAuditLog, getAuditCount, getAuditUsers } = require('../dal/audit-queries');
+const { validateEnum, validateInt } = require('../middleware/validate');
+const config = require('../env');
+
+const VALID_CATEGORIES = ['login', 'activity', 'upload', 'purge', 'user'];
 
 const router = express.Router();
 
@@ -31,7 +35,7 @@ router.get('/api/admin/data-overview', asyncHandler((req, res) => {
   const openContracts = db.prepare('SELECT COUNT(*) AS total FROM contracts WHERE is_open = 1').get();
 
   // Database file size
-  const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
+  const dataDir = config.dataDir;
   const dbPath = path.join(dataDir, 'nfr.db');
   let dbSizeBytes = 0;
   try { dbSizeBytes = fs.statSync(dbPath).size; } catch (e) { /* ignore */ }
@@ -73,9 +77,9 @@ router.post('/api/admin/purge', asyncHandler((req, res) => {
 
 // GET /api/admin/audit-log — paginated audit log with category + username filters
 router.get('/api/admin/audit-log', asyncHandler((req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 30, 200);
-  const offset = parseInt(req.query.offset) || 0;
-  const category = req.query.category || null;
+  const limit = validateInt(req.query.limit, { min: 1, max: 200, fallback: 30 });
+  const offset = validateInt(req.query.offset, { min: 0, fallback: 0 });
+  const category = validateEnum(req.query.category, VALID_CATEGORIES);
   const username = req.query.username || null;
 
   const entries = getAuditLog({ limit, offset, category, username });

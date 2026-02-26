@@ -180,7 +180,7 @@ const SECTIONS = [
     content: [
       {
         heading: 'Changing your password',
-        body: 'Click your username in the top-right corner of the dashboard to open the user menu. Select "Change Password", enter your current password, then your new password (minimum 6 characters) twice to confirm.',
+        body: 'Click your username in the top-right corner of the dashboard to open the user menu. Select "Change Password", enter your current password, then your new password (minimum 8 characters, must include uppercase, lowercase, and a number) twice to confirm.',
       },
       {
         heading: 'Signing out',

@@ -7,6 +7,7 @@ const { asyncHandler } = require('../middleware/error-handler');
 const { authenticate, signToken } = require('../middleware/auth');
 const { findByUsername, updatePassword, updateLastLogin } = require('../dal/user-queries');
 const { logAction } = require('../dal/audit-queries');
+const { validatePassword } = require('../middleware/validate');
 
 const router = express.Router();
 
@@ -66,8 +67,9 @@ router.put('/api/auth/password', authenticate, asyncHandler((req, res) => {
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: 'Current password and new password are required' });
   }
-  if (newPassword.length < 6) {
-    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  const pwErr = validatePassword(newPassword);
+  if (pwErr) {
+    return res.status(400).json({ error: pwErr });
   }
 
   const user = findByUsername(req.user.username);

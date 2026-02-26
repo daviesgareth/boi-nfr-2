@@ -2,9 +2,10 @@
 // JWT authentication + role authorization middleware
 // ---------------------------------------------------------------------------
 const jwt = require('jsonwebtoken');
+const config = require('../env');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'nfr-dev-secret-change-in-prod';
-const JWT_EXPIRY = '8h';
+const JWT_SECRET = config.jwtSecret;
+const JWT_EXPIRY = config.jwtExpiry;
 
 /**
  * Middleware: validates Bearer token and sets req.user

@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const { asyncHandler } = require('../middleware/error-handler');
 const users = require('../dal/user-queries');
 const { logAction } = require('../dal/audit-queries');
+const { validatePassword } = require('../middleware/validate');
 
 const router = express.Router();
 
@@ -80,8 +81,9 @@ router.put('/api/users/:id/password', asyncHandler((req, res) => {
   const { id } = req.params;
   const { password } = req.body;
 
-  if (!password || password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  const pwErr = validatePassword(password);
+  if (pwErr) {
+    return res.status(400).json({ error: pwErr });
   }
 
   const existing = users.findById(id);

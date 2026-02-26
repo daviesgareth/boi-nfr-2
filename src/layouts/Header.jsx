@@ -93,8 +93,12 @@ export default function Header() {
       setPwError('All fields are required');
       return;
     }
-    if (pwForm.new.length < 6) {
-      setPwError('New password must be at least 6 characters');
+    if (pwForm.new.length < 8) {
+      setPwError('Password must be at least 8 characters');
+      return;
+    }
+    if (!/[A-Z]/.test(pwForm.new) || !/[a-z]/.test(pwForm.new) || !/[0-9]/.test(pwForm.new)) {
+      setPwError('Password needs uppercase, lowercase, and a number');
       return;
     }
     if (pwForm.new !== pwForm.confirm) {
