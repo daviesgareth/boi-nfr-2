@@ -7,13 +7,14 @@ export default function UploadModal({ onClose, onComplete }) {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [mode, setMode] = useState('replace');
 
   const onDrop = useCallback(async (files) => {
     if (files.length === 0) return;
     setUploading(true);
     setError(null);
     try {
-      const res = await uploadFile(files[0]);
+      const res = await uploadFile(files[0], mode);
       setResult(res);
       setTimeout(() => onComplete(), 2000);
     } catch (e) {
@@ -21,7 +22,7 @@ export default function UploadModal({ onClose, onComplete }) {
     } finally {
       setUploading(false);
     }
-  }, [onComplete]);
+  }, [onComplete, mode]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -74,27 +75,61 @@ export default function UploadModal({ onClose, onComplete }) {
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
         ) : (
-          <div
-            {...getRootProps()}
-            style={{
-              border: `2px dashed ${isDragActive ? '#00355F' : '#EDF0F4'}`,
-              borderRadius: 8,
-              padding: 40,
-              textAlign: 'center',
-              cursor: 'pointer',
-              background: isDragActive ? `#00355F08` : '#F4F6F9',
-              transition: 'all 0.2s'
-            }}
-          >
-            <input {...getInputProps()} />
-            <Upload size={36} color="#00355F" style={{ marginBottom: 12 }} />
-            <p style={{ fontWeight: 600, color: '#00355F' }}>
-              {isDragActive ? 'Drop file here' : 'Drag & drop your file here'}
-            </p>
-            <p style={{ color: '#9FAFC0', fontSize: 13, marginTop: 4 }}>
-              or click to browse — CSV or Excel (.xlsx)
-            </p>
-          </div>
+          <>
+            {/* Mode toggle */}
+            <div style={{
+              display: 'flex', gap: 8, marginBottom: 16,
+              background: '#F4F6F9', borderRadius: 8, padding: 4,
+            }}>
+              {[
+                { value: 'replace', label: 'Replace All', desc: 'Clear existing data first' },
+                { value: 'merge', label: 'Merge', desc: 'Add to existing data' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setMode(opt.value)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: mode === opt.value ? '#00355F' : 'transparent',
+                    color: mode === opt.value ? 'white' : '#7A8FA6',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <div>{opt.label}</div>
+                  <div style={{ fontSize: 10, fontWeight: 400, opacity: 0.8, marginTop: 2 }}>{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+
+            <div
+              {...getRootProps()}
+              style={{
+                border: `2px dashed ${isDragActive ? '#00355F' : '#EDF0F4'}`,
+                borderRadius: 8,
+                padding: 40,
+                textAlign: 'center',
+                cursor: 'pointer',
+                background: isDragActive ? '#00355F08' : '#F4F6F9',
+                transition: 'all 0.2s'
+              }}
+            >
+              <input {...getInputProps()} />
+              <Upload size={36} color="#00355F" style={{ marginBottom: 12 }} />
+              <p style={{ fontWeight: 600, color: '#00355F' }}>
+                {isDragActive ? 'Drop file here' : 'Drag & drop your file here'}
+              </p>
+              <p style={{ color: '#9FAFC0', fontSize: 13, marginTop: 4 }}>
+                or click to browse — CSV or Excel (.xlsx)
+              </p>
+            </div>
+          </>
         )}
 
         {error && (

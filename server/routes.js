@@ -67,10 +67,20 @@ function buildExclusionClause(query) {
 router.post('/api/upload', upload.single('file'), (req, res) => {
   try {
     const filePath = req.file.path;
+    const mode = req.query.mode || 'replace';
+
+    if (mode === 'replace') {
+      // Clear all existing data before re-importing
+      db.exec('DELETE FROM nfr_results');
+      db.exec('DELETE FROM matching_log');
+      db.exec('DELETE FROM contracts');
+      console.log('Cleared existing data (replace mode)');
+    }
+
     const ingestCount = ingestFile(filePath);
     const matchStats = runMatching();
     computeNFR();
-    res.json({ success: true, contracts: ingestCount, customers: matchStats.unique_customers });
+    res.json({ success: true, contracts: ingestCount, customers: matchStats.unique_customers, mode });
   } catch (err) {
     console.error('Upload error:', err);
     res.status(500).json({ error: err.message });
