@@ -1,6 +1,7 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Shield } from 'lucide-react';
 
 const TABS = [
   { to: '/dashboard/overview', label: 'NFR Overview' },
@@ -29,6 +30,8 @@ const tabStyle = (isActive) => ({
 
 export default function NavTabs() {
   const { isAdmin } = useAuth();
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/dashboard/admin');
 
   return (
     <div style={{ padding: '0 36px', display: 'flex', gap: 2 }}>
@@ -42,20 +45,18 @@ export default function NavTabs() {
         </NavLink>
       ))}
       {isAdmin && (
-        <>
-          <NavLink
-            to="/dashboard/admin/data"
-            style={({ isActive }) => tabStyle(isActive)}
-          >
-            Data Management
-          </NavLink>
-          <NavLink
-            to="/dashboard/admin/users"
-            style={({ isActive }) => tabStyle(isActive)}
-          >
-            Users
-          </NavLink>
-        </>
+        <NavLink
+          to="/dashboard/admin"
+          style={() => ({
+            ...tabStyle(isAdminRoute),
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
+          })}
+        >
+          <Shield size={12} />
+          Admin
+        </NavLink>
       )}
     </div>
   );

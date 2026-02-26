@@ -51,14 +51,17 @@ const GROUP_SECTIONS = [
   },
 ];
 
-// Flat list for lookups
 const ALL_GROUP_OPTIONS = GROUP_SECTIONS.flatMap(s => s.options);
 
+// All multi-select keys use arrays; single-value keys use strings
 const INITIAL_FILTERS = {
-  year: '', region: '', make: '', agreement_type: '', term_band: '',
-  new_used: '', termination: '', fuel_type: '', customer_type: '',
-  apr_band: '', deposit_band: '', repayment_band: '', has_px: '',
-  vehicle_age_band: '', mileage_band: '', merc_type: '', gender: '', owner_tenant: '',
+  year: [], region: [], make: [], agreement_type: [], term_band: [],
+  new_used: [], fuel_type: [], customer_type: [],
+  apr_band: [], deposit_band: [], repayment_band: [],
+  vehicle_age_band: [], mileage_band: [], merc_type: [],
+  gender: [], owner_tenant: [],
+  // These stay as single-value (binary toggles)
+  termination: '', has_px: '',
 };
 
 const selectStyle = {
@@ -107,7 +110,14 @@ export default function Explorer() {
       const excl = excludeParam.replace(/^&/, '').split('=');
       if (excl.length === 2) params.set(excl[0], excl[1]);
     }
-    Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
+    // Serialize filters: arrays as comma-separated, strings as-is
+    Object.entries(filters).forEach(([k, v]) => {
+      if (Array.isArray(v)) {
+        if (v.length > 0) params.set(k, v.join(','));
+      } else if (v) {
+        params.set(k, v);
+      }
+    });
     fetchAPI(`/api/explorer?${params}`).then(setData).catch(() => setData([]));
   }, [filters, groupBy, win, excludeParam, timeframe]);
 
@@ -121,17 +131,17 @@ export default function Explorer() {
   }), { ended: 0, retained: 0, sameDlr: 0, brandLoyal: 0 });
 
   const FILTER_DEFS = [
-    { key: 'year', label: 'Year', options: filterOptions.years, placeholder: 'All Years' },
-    { key: 'region', label: 'Region', options: filterOptions.regions, placeholder: 'All Regions' },
-    { key: 'make', label: 'Make', options: filterOptions.makes, placeholder: 'All Makes' },
-    { key: 'agreement_type', label: 'Agreement', options: filterOptions.agreements, placeholder: 'All' },
-    { key: 'term_band', label: 'Term', options: filterOptions.terms, placeholder: 'All Terms' },
-    { key: 'new_used', label: 'New/Used', options: null, placeholder: 'Both' },
+    { key: 'year', label: 'Year', options: filterOptions.years, placeholder: 'All Years', multi: true },
+    { key: 'region', label: 'Region', options: filterOptions.regions, placeholder: 'All Regions', multi: true },
+    { key: 'make', label: 'Make', options: filterOptions.makes, placeholder: 'All Makes', multi: true },
+    { key: 'agreement_type', label: 'Agreement', options: filterOptions.agreements, placeholder: 'All', multi: true },
+    { key: 'term_band', label: 'Term', options: filterOptions.terms, placeholder: 'All Terms', multi: true },
+    { key: 'new_used', label: 'New/Used', options: ['N', 'U'], placeholder: 'Both', multi: true },
     { key: 'termination', label: 'Termination', options: null, placeholder: 'All' },
-    { key: 'fuel_type', label: 'Fuel Type', options: filterOptions.fuels, placeholder: 'All Fuels' },
-    { key: 'customer_type', label: 'Cust. Type', options: filterOptions.custTypes, placeholder: 'All Types' },
-    { key: 'gender', label: 'Gender', options: null, placeholder: 'All' },
-    { key: 'owner_tenant', label: 'Own/Rent', options: null, placeholder: 'All' },
+    { key: 'fuel_type', label: 'Fuel Type', options: filterOptions.fuels, placeholder: 'All Fuels', multi: true },
+    { key: 'customer_type', label: 'Cust. Type', options: filterOptions.custTypes, placeholder: 'All Types', multi: true },
+    { key: 'gender', label: 'Gender', options: ['Male', 'Female'], placeholder: 'All', multi: true },
+    { key: 'owner_tenant', label: 'Own/Rent', options: ['Owner', 'Tenant'], placeholder: 'All', multi: true },
     { key: 'has_px', label: 'Part Ex.', options: null, placeholder: 'All' },
   ];
 
@@ -145,32 +155,11 @@ export default function Explorer() {
         onReset={() => setFilters(INITIAL_FILTERS)}
         columns={6}
         customRenderers={{
-          new_used: (val, onChange) => (
-            <select style={selectStyle} value={val || ''} onChange={e => onChange(e.target.value)}>
-              <option value="">Both</option>
-              <option value="N">New</option>
-              <option value="U">Used</option>
-            </select>
-          ),
           termination: (val, onChange) => (
             <select style={selectStyle} value={val || ''} onChange={e => onChange(e.target.value)}>
               <option value="">All</option>
               <option value="early">Early</option>
               <option value="full">Full Term</option>
-            </select>
-          ),
-          gender: (val, onChange) => (
-            <select style={selectStyle} value={val || ''} onChange={e => onChange(e.target.value)}>
-              <option value="">All</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-            </select>
-          ),
-          owner_tenant: (val, onChange) => (
-            <select style={selectStyle} value={val || ''} onChange={e => onChange(e.target.value)}>
-              <option value="">All</option>
-              <option value="Owner">Owner</option>
-              <option value="Tenant">Tenant</option>
             </select>
           ),
           has_px: (val, onChange) => (

@@ -1,5 +1,6 @@
 import React from 'react';
 import { C } from './shared';
+import MultiSelect from './MultiSelect';
 
 const selectStyle = {
   background: '#FFFFFF',
@@ -19,9 +20,8 @@ const selectStyle = {
  * Reusable filter panel with select dropdowns in a grid.
  *
  * Props:
- *  - filters: array of { key, label, options?, placeholder, type? }
- *    type: 'select' (default), 'custom' (provides render fn)
- *  - values: object — current filter values
+ *  - filters: array of { key, label, options?, placeholder, multi? }
+ *  - values: object — current filter values (string for single, string[] for multi)
  *  - onChange: (key, value) => void
  *  - onReset: () => void
  *  - title: string (default: 'Filters')
@@ -29,7 +29,10 @@ const selectStyle = {
  *  - customRenderers: object — { [key]: (value, onChange) => ReactNode }
  */
 export default function FilterPanel({ filters, values, onChange, onReset, title = 'Filters', columns = 5, customRenderers = {} }) {
-  const activeCount = Object.values(values).filter(Boolean).length;
+  const activeCount = Object.values(values).filter(v => {
+    if (Array.isArray(v)) return v.length > 0;
+    return Boolean(v);
+  }).length;
 
   return (
     <div style={{ background: `${C.navy}08`, border: `1px solid ${C.navy}12`, borderRadius: 12, padding: 18 }}>
@@ -65,6 +68,13 @@ export default function FilterPanel({ filters, values, onChange, onReset, title 
             </div>
             {customRenderers[f.key] ? (
               customRenderers[f.key](values[f.key], (v) => onChange(f.key, v))
+            ) : f.multi ? (
+              <MultiSelect
+                options={f.options || []}
+                selected={values[f.key] || []}
+                onChange={(v) => onChange(f.key, v)}
+                placeholder={f.placeholder}
+              />
             ) : (
               <select style={selectStyle} value={values[f.key] || ''} onChange={e => onChange(f.key, e.target.value)}>
                 <option value="">{f.placeholder}</option>

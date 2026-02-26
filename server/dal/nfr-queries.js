@@ -253,40 +253,124 @@ function getAtRisk(excl) {
   const sixMonths = new Date();
   sixMonths.setMonth(sixMonths.getMonth() + 6);
   const sixMonthsStr = sixMonths.toISOString().slice(0, 10);
+  const threeMonths = new Date();
+  threeMonths.setMonth(threeMonths.getMonth() + 3);
+  const threeMonthsStr = threeMonths.toISOString().slice(0, 10);
 
+  const baseWhere = `c.is_open = 1 AND c.end_date >= ? AND c.end_date <= ?${excl}`;
+
+  // Monthly expiry forecast
   const monthly = db.prepare(`
     SELECT substr(end_date, 1, 7) AS month, COUNT(*) AS count
-    FROM contracts c
-    WHERE c.is_open = 1 AND c.end_date >= ? AND c.end_date <= ?${excl}
+    FROM contracts c WHERE ${baseWhere}
     GROUP BY month ORDER BY month
   `).all(today, sixMonthsStr);
 
+  // Total at-risk
   const totalRow = db.prepare(`
-    SELECT COUNT(*) AS total
-    FROM contracts c
+    SELECT COUNT(*) AS total FROM contracts c WHERE ${baseWhere}
+  `).get(today, sixMonthsStr);
+
+  // Urgent — next 3 months
+  const urgentRow = db.prepare(`
+    SELECT COUNT(*) AS count FROM contracts c
     WHERE c.is_open = 1 AND c.end_date >= ? AND c.end_date <= ?${excl}
-  `).get(today, sixMonthsStr);
+  `).get(today, threeMonthsStr);
 
+  // PCP ending
   const pcpRow = db.prepare(`
-    SELECT COUNT(*) AS count
-    FROM contracts c
-    WHERE c.is_open = 1 AND c.end_date >= ? AND c.end_date <= ?
-      AND c.agreement_type = 'Select (PCP)'${excl}
+    SELECT COUNT(*) AS count FROM contracts c
+    WHERE ${baseWhere} AND c.agreement_type = 'Select (PCP)'
   `).get(today, sixMonthsStr);
 
+  // Optimal term (37-48 mo)
   const optimalRow = db.prepare(`
-    SELECT COUNT(*) AS count
-    FROM contracts c
-    WHERE c.is_open = 1 AND c.end_date >= ? AND c.end_date <= ?
-      AND c.term_band = '37-48 mo'${excl}
+    SELECT COUNT(*) AS count FROM contracts c
+    WHERE ${baseWhere} AND c.term_band = '37-48 mo'
   `).get(today, sixMonthsStr);
+
+  // By agreement type
+  const byAgreement = db.prepare(`
+    SELECT c.agreement_type AS label, COUNT(*) AS count
+    FROM contracts c WHERE ${baseWhere}
+    GROUP BY c.agreement_type ORDER BY count DESC
+  `).all(today, sixMonthsStr);
+
+  // By region
+  const byRegion = db.prepare(`
+    SELECT c.region AS label, COUNT(*) AS count
+    FROM contracts c WHERE ${baseWhere}
+    GROUP BY c.region ORDER BY count DESC
+  `).all(today, sixMonthsStr);
+
+  // By make (top 15)
+  const byMake = db.prepare(`
+    SELECT c.make AS label, COUNT(*) AS count
+    FROM contracts c WHERE ${baseWhere} AND c.make IS NOT NULL AND c.make != ''
+    GROUP BY c.make ORDER BY count DESC LIMIT 15
+  `).all(today, sixMonthsStr);
+
+  // By fuel type
+  const byFuel = db.prepare(`
+    SELECT c.fuel_type AS label, COUNT(*) AS count
+    FROM contracts c WHERE ${baseWhere} AND c.fuel_type IS NOT NULL AND c.fuel_type != ''
+    GROUP BY c.fuel_type ORDER BY count DESC
+  `).all(today, sixMonthsStr);
+
+  // Monthly stacked by agreement type (for stacked chart)
+  const monthlyByAgreement = db.prepare(`
+    SELECT substr(c.end_date, 1, 7) AS month, c.agreement_type, COUNT(*) AS count
+    FROM contracts c WHERE ${baseWhere}
+    GROUP BY month, c.agreement_type ORDER BY month
+  `).all(today, sixMonthsStr);
+
+  // Top 20 dealer groups by at-risk volume + their historical NFR
+  const topDealerGroups = db.prepare(`
+    SELECT c.dealer_group AS label, COUNT(*) AS at_risk_count
+    FROM contracts c WHERE ${baseWhere}
+    GROUP BY c.dealer_group ORDER BY at_risk_count DESC LIMIT 20
+  `).all(today, sixMonthsStr);
+
+  const dealerGroupsWithNFR = topDealerGroups.map(dg => {
+    const hist = db.prepare(`
+      SELECT COUNT(*) AS ended, SUM(n.retained_core) AS retained
+      FROM contracts c
+      JOIN nfr_results n ON n.contract_id = c.contract_id
+      WHERE c.is_open = 0 AND c.dealer_group = ?${excl}
+    `).get(dg.label);
+    return {
+      ...dg,
+      hist_ended: hist?.ended || 0,
+      hist_retained: hist?.retained || 0,
+      hist_nfr: (hist?.ended > 0) ? Math.round(((hist?.retained || 0) / hist.ended) * 10000) / 100 : 0,
+    };
+  });
+
+  // Overall historical NFR for context
+  const histOverall = db.prepare(`
+    SELECT COUNT(*) AS ended, SUM(n.retained_core) AS retained
+    FROM contracts c JOIN nfr_results n ON n.contract_id = c.contract_id
+    WHERE c.is_open = 0${excl}
+  `).get();
 
   return {
     monthly,
     total: totalRow.total || 0,
+    urgent: urgentRow.count || 0,
     segments: {
       pcp_ending: pcpRow.count || 0,
       optimal_term: optimalRow.count || 0,
+    },
+    byAgreement,
+    byRegion,
+    byMake,
+    byFuel,
+    monthlyByAgreement,
+    topDealerGroups: dealerGroupsWithNFR,
+    historicalNFR: {
+      ended: histOverall?.ended || 0,
+      retained: histOverall?.retained || 0,
+      nfr_rate: (histOverall?.ended > 0) ? Math.round(((histOverall?.retained || 0) / histOverall.ended) * 10000) / 100 : 0,
     },
   };
 }
@@ -434,26 +518,44 @@ function getExplorerData(retainedCol, exclusionConditions, { groupBy, filters })
     mileage_band, merc_type, gender, owner_tenant,
   } = filters;
 
-  if (year) { conditions.push("substr(c.end_date, 1, 4) = ?"); params.push(year); }
-  if (region) { conditions.push("c.region = ?"); params.push(region); }
-  if (make) { conditions.push("c.make = ?"); params.push(make); }
-  if (agreement_type) { conditions.push("c.agreement_type = ?"); params.push(agreement_type); }
-  if (term_band) { conditions.push("c.term_band = ?"); params.push(term_band); }
-  if (new_used) { conditions.push("c.new_used = ?"); params.push(new_used); }
+  // Helper: add a single-value or multi-value (comma-separated) condition
+  const addFilter = (col, val) => {
+    if (!val) return;
+    const vals = val.split(',').map(v => v.trim()).filter(Boolean);
+    if (vals.length === 0) return;
+    if (vals.length === 1) {
+      conditions.push(`${col} = ?`);
+      params.push(vals[0]);
+    } else {
+      conditions.push(`${col} IN (${vals.map(() => '?').join(',')})`);
+      params.push(...vals);
+    }
+  };
+
+  if (year) {
+    const yrs = year.split(',').filter(Boolean);
+    if (yrs.length === 1) { conditions.push("substr(c.end_date, 1, 4) = ?"); params.push(yrs[0]); }
+    else if (yrs.length > 1) { conditions.push(`substr(c.end_date, 1, 4) IN (${yrs.map(() => '?').join(',')})`); params.push(...yrs); }
+  }
+  addFilter('c.region', region);
+  addFilter('c.make', make);
+  addFilter('c.agreement_type', agreement_type);
+  addFilter('c.term_band', term_band);
+  addFilter('c.new_used', new_used);
   if (termination === 'early') conditions.push("c.ended_early = 1");
   else if (termination === 'full') conditions.push("c.ended_early = 0");
-  if (fuel_type) { conditions.push("c.fuel_type = ?"); params.push(fuel_type); }
-  if (customer_type) { conditions.push("c.customer_type = ?"); params.push(customer_type); }
-  if (apr_band) { conditions.push("c.apr_band = ?"); params.push(apr_band); }
-  if (deposit_band) { conditions.push("c.deposit_band = ?"); params.push(deposit_band); }
-  if (repayment_band) { conditions.push("c.repayment_band = ?"); params.push(repayment_band); }
+  addFilter('c.fuel_type', fuel_type);
+  addFilter('c.customer_type', customer_type);
+  addFilter('c.apr_band', apr_band);
+  addFilter('c.deposit_band', deposit_band);
+  addFilter('c.repayment_band', repayment_band);
   if (has_px === '1') conditions.push("c.has_px = 1");
   else if (has_px === '0') conditions.push("c.has_px = 0");
-  if (vehicle_age_band) { conditions.push("c.vehicle_age_band = ?"); params.push(vehicle_age_band); }
-  if (mileage_band) { conditions.push("c.mileage_band = ?"); params.push(mileage_band); }
-  if (merc_type) { conditions.push("c.merc_type = ?"); params.push(merc_type); }
-  if (gender) { conditions.push("c.gender = ?"); params.push(gender); }
-  if (owner_tenant) { conditions.push("c.owner_tenant = ?"); params.push(owner_tenant); }
+  addFilter('c.vehicle_age_band', vehicle_age_band);
+  addFilter('c.mileage_band', mileage_band);
+  addFilter('c.merc_type', merc_type);
+  addFilter('c.gender', gender);
+  addFilter('c.owner_tenant', owner_tenant);
 
   conditions.push(...exclusionConditions);
 

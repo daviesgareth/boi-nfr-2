@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { FilterProvider } from './contexts/FilterContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
+import AdminLayout from './layouts/AdminLayout';
 import LoadingState from './components/LoadingState';
 import LoginPage from './pages/LoginPage';
 
@@ -46,21 +47,17 @@ export default function App() {
             <Route path="agreements" element={<SuspenseWrap><AgreementTerm /></SuspenseWrap>} />
             <Route path="matching" element={<SuspenseWrap><CustomerMatching /></SuspenseWrap>} />
             <Route
-              path="admin/data"
+              path="admin"
               element={
                 <ProtectedRoute roles={['admin']}>
-                  <SuspenseWrap><DataManagement /></SuspenseWrap>
+                  <AdminLayout />
                 </ProtectedRoute>
               }
-            />
-            <Route
-              path="admin/users"
-              element={
-                <ProtectedRoute roles={['admin']}>
-                  <SuspenseWrap><UserManagement /></SuspenseWrap>
-                </ProtectedRoute>
-              }
-            />
+            >
+              <Route index element={<Navigate to="/dashboard/admin/data" replace />} />
+              <Route path="data" element={<SuspenseWrap><DataManagement /></SuspenseWrap>} />
+              <Route path="users" element={<SuspenseWrap><UserManagement /></SuspenseWrap>} />
+            </Route>
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
