@@ -37,10 +37,10 @@ router.post('/api/users', asyncHandler((req, res) => {
   res.status(201).json(user);
 }));
 
-// PUT /api/users/:id — update a user (role, email)
+// PUT /api/users/:id — update a user (username, email, role)
 router.put('/api/users/:id', asyncHandler((req, res) => {
   const { id } = req.params;
-  const { email, role } = req.body;
+  const { username, email, role } = req.body;
 
   const existing = users.findById(id);
   if (!existing) {
@@ -52,6 +52,14 @@ router.put('/api/users/:id', asyncHandler((req, res) => {
     return res.status(400).json({ error: 'Invalid role. Allowed: ' + validRoles.join(', ') });
   }
 
+  // Check username uniqueness if changing
+  if (username && username !== existing.username) {
+    const dup = users.findByUsername(username);
+    if (dup) {
+      return res.status(409).json({ error: 'Username already exists' });
+    }
+  }
+
   // Prevent removing last admin
   if (existing.role === 'admin' && role && role !== 'admin') {
     const adminCount = users.countAdmins();
@@ -60,7 +68,7 @@ router.put('/api/users/:id', asyncHandler((req, res) => {
     }
   }
 
-  const updated = users.updateUser(id, { email, role });
+  const updated = users.updateUser(id, { username, email, role });
   res.json(updated);
 }));
 

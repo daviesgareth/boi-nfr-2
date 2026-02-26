@@ -22,9 +22,10 @@ function createUser(username, email, passwordHash, role = 'viewer') {
   return findById(result.lastInsertRowid);
 }
 
-function updateUser(id, { email, role }) {
+function updateUser(id, { username, email, role }) {
   const sets = [];
   const params = [];
+  if (username !== undefined) { sets.push('username = ?'); params.push(username); }
   if (email !== undefined) { sets.push('email = ?'); params.push(email); }
   if (role !== undefined) { sets.push('role = ?'); params.push(role); }
   if (sets.length === 0) return findById(id);
