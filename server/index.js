@@ -4,7 +4,7 @@ const path = require('path');
 const { initDB, db } = require('./db');
 const { runMatching } = require('./matching');
 const { computeNFR } = require('./nfr');
-const routes = require('./routes');
+const routes = require('./routes/index');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
