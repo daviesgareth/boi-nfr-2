@@ -16,6 +16,7 @@ const Explorer = lazy(() => import('./tabs/Explorer'));
 const AgreementTerm = lazy(() => import('./tabs/AgreementTerm'));
 const CustomerMatching = lazy(() => import('./tabs/CustomerMatching'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
+const DataManagement = lazy(() => import('./pages/DataManagement'));
 
 const SuspenseWrap = ({ children }) => (
   <Suspense fallback={<LoadingState />}>{children}</Suspense>
@@ -44,6 +45,14 @@ export default function App() {
             <Route path="explorer" element={<SuspenseWrap><Explorer /></SuspenseWrap>} />
             <Route path="agreements" element={<SuspenseWrap><AgreementTerm /></SuspenseWrap>} />
             <Route path="matching" element={<SuspenseWrap><CustomerMatching /></SuspenseWrap>} />
+            <Route
+              path="admin/data"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <SuspenseWrap><DataManagement /></SuspenseWrap>
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="admin/users"
               element={

@@ -10,6 +10,7 @@ const { ingestFile } = require('../ingest');
 const { runMatching } = require('../matching');
 const { computeNFR } = require('../nfr');
 const { asyncHandler } = require('../middleware/error-handler');
+const { logAction } = require('../dal/audit-queries');
 
 const router = express.Router();
 
@@ -40,6 +41,9 @@ router.post('/api/upload', upload.single('file'), asyncHandler((req, res) => {
   const ingestCount = ingestFile(filePath);
   const matchStats = runMatching();
   computeNFR();
+  const detail = `Uploaded file (${mode} mode): ${ingestCount.toLocaleString()} contracts ingested, ${matchStats.unique_customers.toLocaleString()} customers matched`;
+  logAction(req.user.id, req.user.username, 'data_upload', 'upload', detail);
+
   res.json({ success: true, contracts: ingestCount, customers: matchStats.unique_customers, mode });
 }));
 

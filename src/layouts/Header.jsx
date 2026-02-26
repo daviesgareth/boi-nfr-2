@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchAPI } from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import { useFilters } from '../contexts/FilterContext';
-import UploadModal from '../components/UploadModal';
-import { Upload, Filter, ChevronDown, LogOut } from 'lucide-react';
+import { Filter, ChevronDown, LogOut } from 'lucide-react';
 
 const selStyle = {
   background: 'var(--white)',
@@ -40,10 +39,9 @@ const EXCLUSION_GROUPS = [
 ];
 
 export default function Header() {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, logout } = useAuth();
   const { window, setWindow, timeframe, setTimeframe, exclusions, toggleExclusion, clearExclusions } = useFilters();
   const [status, setStatus] = useState(null);
-  const [showUpload, setShowUpload] = useState(false);
   const [showExclDropdown, setShowExclDropdown] = useState(false);
   const dropRef = useRef(null);
 
@@ -65,11 +63,6 @@ export default function Header() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
-
-  const onUploadComplete = () => {
-    setShowUpload(false);
-    loadStatus();
-  };
 
   const exclCount = exclusions.length;
 
@@ -216,20 +209,6 @@ export default function Header() {
               {status.total_contracts?.toLocaleString()} Contracts
             </div>
           )}
-          {isAdmin && (
-            <button
-              onClick={() => setShowUpload(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
-                background: 'var(--navy)', border: 'none', borderRadius: 8,
-                color: '#FFFFFF', fontFamily: 'var(--font)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              }}
-            >
-              <Upload size={13} />
-              Upload Data
-            </button>
-          )}
-
           {/* User info + logout */}
           {user && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -249,7 +228,6 @@ export default function Header() {
         </div>
       </div>
 
-      {showUpload && <UploadModal onClose={() => setShowUpload(false)} onComplete={onUploadComplete} />}
     </>
   );
 }

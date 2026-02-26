@@ -13,6 +13,7 @@ const explorerRoutes = require('./explorer');
 const matchingRoutes = require('./matching');
 const uploadRoutes = require('./upload');
 const statusRoutes = require('./status');
+const adminRoutes = require('./admin');
 
 const router = express.Router();
 
@@ -37,6 +38,8 @@ router.use('/api/upload', requireRole('admin'));
 router.use(uploadRoutes);
 router.use('/api/users', requireRole('admin'));
 router.use(userRoutes);
+router.use('/api/admin', requireRole('admin'));
+router.use(adminRoutes);
 
 // Error handler (must be last)
 router.use(errorHandler);

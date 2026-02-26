@@ -185,6 +185,21 @@ function initDB() {
     );
   `);
 
+  // Create audit_log table for tracking admin actions
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      username TEXT NOT NULL,
+      action TEXT NOT NULL,
+      category TEXT NOT NULL,
+      detail TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
+    CREATE INDEX IF NOT EXISTS idx_audit_log_category ON audit_log(category);
+  `);
+
   // Seed default admin user if none exists
   const bcrypt = require('bcryptjs');
   const adminExists = db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'").get();

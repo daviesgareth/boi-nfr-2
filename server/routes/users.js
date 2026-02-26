@@ -5,6 +5,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { asyncHandler } = require('../middleware/error-handler');
 const users = require('../dal/user-queries');
+const { logAction } = require('../dal/audit-queries');
 
 const router = express.Router();
 
@@ -34,6 +35,7 @@ router.post('/api/users', asyncHandler((req, res) => {
 
   const hash = bcrypt.hashSync(password, 10);
   const user = users.createUser(username, email, hash, role || 'viewer');
+  logAction(req.user.id, req.user.username, 'user_created', 'user', `Created user '${username}' with role ${role || 'viewer'}`);
   res.status(201).json(user);
 }));
 
@@ -69,6 +71,7 @@ router.put('/api/users/:id', asyncHandler((req, res) => {
   }
 
   const updated = users.updateUser(id, { username, email, role });
+  logAction(req.user.id, req.user.username, 'user_updated', 'user', `Updated user '${existing.username}' (#${id})`);
   res.json(updated);
 }));
 
@@ -88,6 +91,7 @@ router.put('/api/users/:id/password', asyncHandler((req, res) => {
 
   const hash = bcrypt.hashSync(password, 10);
   users.updatePassword(id, hash);
+  logAction(req.user.id, req.user.username, 'user_password_changed', 'user', `Changed password for user '${existing.username}' (#${id})`);
   res.json({ success: true });
 }));
 
@@ -114,6 +118,7 @@ router.delete('/api/users/:id', asyncHandler((req, res) => {
   }
 
   users.deleteUser(id);
+  logAction(req.user.id, req.user.username, 'user_deleted', 'user', `Deleted user '${existing.username}' (#${id})`);
   res.json({ success: true });
 }));
 

@@ -42,12 +42,20 @@ export default function NavTabs() {
         </NavLink>
       ))}
       {isAdmin && (
-        <NavLink
-          to="/dashboard/admin/users"
-          style={({ isActive }) => tabStyle(isActive)}
-        >
-          Admin
-        </NavLink>
+        <>
+          <NavLink
+            to="/dashboard/admin/data"
+            style={({ isActive }) => tabStyle(isActive)}
+          >
+            Data Management
+          </NavLink>
+          <NavLink
+            to="/dashboard/admin/users"
+            style={({ isActive }) => tabStyle(isActive)}
+          >
+            Users
+          </NavLink>
+        </>
       )}
     </div>
   );
