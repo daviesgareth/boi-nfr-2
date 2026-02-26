@@ -332,7 +332,7 @@ router.get('/api/nfr/by-dealer', (req, res) => {
         diff_dealer_retained: r.diff_dealer_retained || 0,
         total_retained: totalRetained,
         nfr_rate: r.ended > 0 ? Math.round((totalRetained / r.ended) * 10000) / 100 : 0,
-        dealer_retained_pct: totalRetained > 0 ? Math.round(((r.same_dealer_retained || 0) / totalRetained) * 10000) / 100 : 0
+        dealer_retained_pct: r.ended > 0 ? Math.round(((r.same_dealer_retained || 0) / r.ended) * 10000) / 100 : 0
       };
     });
 
