@@ -158,12 +158,11 @@ export default function Overview() {
 
       {/* 2. Retention Curve — the centrepiece */}
       {curveData && curveData.curve && (() => {
-        // Enrich curve data with monthly rate + log-safe count
+        // Enrich curve data with monthly rate
         const total = curveData.total || 1;
         const enrichedCurve = curveData.curve.map(p => ({
           ...p,
           monthly_rate: Math.round((p.count / total) * 10000) / 100,
-          logCount: Math.max(p.count, 0.5), // floor for log scale (0 → invisible)
         }));
         // Find peak month
         const peakMonth = enrichedCurve.reduce((best, p) => p.count > best.count ? p : best, { count: 0 });
@@ -171,7 +170,7 @@ export default function Overview() {
         return (
           <ChartCard
             title="Retention Curve"
-            subtitle="When do customers come back? Bars = monthly matches (log scale), line = cumulative retention %"
+            subtitle="When do customers come back? Bars = monthly return rate, line = cumulative retention %"
           >
             {/* Legend */}
             <div style={{ display: 'flex', gap: 16, padding: '0 0 8px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -181,7 +180,7 @@ export default function Overview() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
                 <div style={{ width: 12, height: 12, background: C.iceDark, borderRadius: 2, opacity: 0.7 }} />
-                <span style={{ color: C.textMid, fontWeight: 600 }}>Monthly matches (log scale)</span>
+                <span style={{ color: C.textMid, fontWeight: 600 }}>Monthly return rate %</span>
               </div>
               {peakMonth.month != null && (
                 <div style={{ fontSize: 11, color: C.textMuted, marginLeft: 'auto' }}>
@@ -205,21 +204,13 @@ export default function Overview() {
                   label={{ value: 'Months from contract end', position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: C.textMuted } }}
                   tickFormatter={v => v === 0 ? '0' : v > 0 ? `+${v}` : `${v}`}
                 />
-                <YAxis yAxisId="left" {...axisProps} unit="%" domain={[0, dataMax => Math.ceil(dataMax * 1.2)]} />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  {...axisProps}
-                  scale="log"
-                  domain={[1, dataMax => Math.ceil(dataMax * 1.5)]}
-                  allowDataOverflow
-                  tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : Math.round(v)}
-                />
+                <YAxis yAxisId="left" {...axisProps} unit="%" domain={[0, dataMax => Math.ceil(dataMax * 1.15)]} />
+                <YAxis yAxisId="right" orientation="right" {...axisProps} unit="%" domain={[0, dataMax => Math.round(dataMax * 1.3 * 100) / 100]} />
                 <Tooltip content={<CurveTooltipContent />} />
                 <ReferenceLine x={0} yAxisId="left" stroke={C.amber} strokeDasharray="4 4" strokeWidth={2}
                   label={{ value: 'End date', position: 'insideTopRight', style: { fontSize: 10, fill: C.amber, fontWeight: 700 } }}
                 />
-                <Bar yAxisId="right" dataKey="logCount" name="Monthly Matches" fill={C.iceDark} fillOpacity={0.45} radius={[3, 3, 0, 0]} barSize={14} />
+                <Bar yAxisId="right" dataKey="monthly_rate" name="Monthly Rate" fill={C.iceDark} fillOpacity={0.45} radius={[3, 3, 0, 0]} barSize={14} />
                 <Area yAxisId="left" type="monotone" dataKey="rate" stroke={C.navy} strokeWidth={2.5} fill="url(#curveGrad)" dot={false} activeDot={{ r: 5, fill: C.navy }} />
               </ComposedChart>
             </ResponsiveContainer>
