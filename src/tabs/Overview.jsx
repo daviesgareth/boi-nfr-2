@@ -1,7 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { fetchAPI } from '../api';
+import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Legend, Cell, Line, PieChart, Pie } from 'recharts';
-import { Metric, Crd, Sec, CustomTooltip, Callout, nfrColor, fN, C, axisProps } from '../components/shared';
+import { Crd, Sec, CustomTooltip, Callout, nfrColor, fN, C, axisProps } from '../components/shared';
+import MetricGrid from '../components/MetricGrid';
+import ChartCard from '../components/ChartCard';
+import NFRBarChart from '../components/NFRBarChart';
+import StatCard from '../components/StatCard';
+import LoadingState from '../components/LoadingState';
+import useNFRData from '../hooks/useNFRData';
+import { useFilters } from '../contexts/FilterContext';
 
 const WINDOW_LABELS = {
   'core': 'Core (-3/+1)', '6_1': '-6/+1 mo', '3_3': '-3/+3 mo', '3_6': '-3/+6 mo', '3_12': '-3/+12 mo',
@@ -20,28 +26,18 @@ const WINDOW_DEFS = {
 const WIN_COLORS = [C.navy, C.iceDark, C.teal, C.purple];
 const FUEL_COLORS = [C.navy, '#3B82F6', C.teal, '#10B981', C.amber, C.purple, '#EC4899', '#6366F1', '#F97316', '#78716C'];
 
-export default function Overview({ window: win, excludeParam = '' }) {
-  const [national, setNational] = useState(null);
-  const [yearly, setYearly] = useState([]);
-  const [transitions, setTransitions] = useState([]);
-  const [termination, setTermination] = useState(null);
-  const [agreements, setAgreements] = useState([]);
-  const [windowComp, setWindowComp] = useState([]);
-  const [fuelData, setFuelData] = useState([]);
-  const [custTypeData, setCustTypeData] = useState([]);
+export default function Overview() {
+  const { window: win } = useFilters();
+  const { data: national, loading } = useNFRData('/api/nfr/national');
+  const { data: yearly } = useNFRData('/api/nfr/by-year', { defaultValue: [] });
+  const { data: transitions } = useNFRData('/api/nfr/transitions', { defaultValue: [] });
+  const { data: termination } = useNFRData('/api/nfr/termination');
+  const { data: agreements } = useNFRData('/api/nfr/by-agreement', { defaultValue: [] });
+  const { data: windowComp } = useNFRData('/api/nfr/window-comparison', { skipWindow: true, defaultValue: [] });
+  const { data: fuelData } = useNFRData('/api/nfr/by-fuel', { defaultValue: [] });
+  const { data: custTypeData } = useNFRData('/api/nfr/by-customer-type', { defaultValue: [] });
 
-  useEffect(() => {
-    fetchAPI(`/api/nfr/national?window=${win}${excludeParam}`).then(setNational).catch(() => {});
-    fetchAPI(`/api/nfr/by-year?window=${win}${excludeParam}`).then(setYearly).catch(() => {});
-    fetchAPI(`/api/nfr/transitions?window=${win}${excludeParam}`).then(setTransitions).catch(() => {});
-    fetchAPI(`/api/nfr/termination?window=${win}${excludeParam}`).then(setTermination).catch(() => {});
-    fetchAPI(`/api/nfr/by-agreement?window=${win}${excludeParam}`).then(setAgreements).catch(() => {});
-    fetchAPI(`/api/nfr/window-comparison?_=1${excludeParam}`).then(setWindowComp).catch(() => {});
-    fetchAPI(`/api/nfr/by-fuel?window=${win}${excludeParam}`).then(setFuelData).catch(() => {});
-    fetchAPI(`/api/nfr/by-customer-type?window=${win}${excludeParam}`).then(setCustTypeData).catch(() => {});
-  }, [win, excludeParam]);
-
-  if (!national) return <p style={{ textAlign: 'center', padding: 40, color: C.textMuted }}>Loading...</p>;
+  if (loading || !national) return <LoadingState />;
 
   const wl = WINDOW_LABELS[win] || 'Core (-3/+1)';
   const wd = WINDOW_DEFS[win] || WINDOW_DEFS['core'];
@@ -49,7 +45,6 @@ export default function Overview({ window: win, excludeParam = '' }) {
     ? (termination.early?.nfr_rate / termination.full_term.nfr_rate).toFixed(0)
     : null;
 
-  // Fuel data sorted by ended count desc for pie + bar
   const fuelSorted = [...fuelData].sort((a, b) => (b.ended || 0) - (a.ended || 0));
   const fuelPie = fuelSorted.map((f, i) => ({
     name: f.fuel_type || 'Unknown',
@@ -67,19 +62,17 @@ export default function Overview({ window: win, excludeParam = '' }) {
         </p>
       </Callout>
 
-      {/* Accent-Striped KPI Metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        <Metric large label={`NFR @ ${wl}`} value={`${national.nfr_rate}%`} sub={`${fN(national.retained)} of ${fN(national.ended)} renewed`} accent={C.green} />
-        <Metric label="Ended Contracts" value={fN(national.ended)} sub="Total closed" accent={C.navy} />
-        <Metric label="Retained" value={fN(national.retained)} sub={`${national.nfr_rate}% retention`} accent={C.teal} />
-        <Metric label="Early Terminators" value={earlyMultiplier ? `${earlyMultiplier}\u00d7 more likely` : '\u2014'} sub="to renew vs full-term" accent={C.amber} />
-      </div>
+      {/* KPI Metrics */}
+      <MetricGrid columns={4} metrics={[
+        { label: `NFR @ ${wl}`, value: `${national.nfr_rate}%`, sub: `${fN(national.retained)} of ${fN(national.ended)} renewed`, accent: C.green, large: true },
+        { label: 'Ended Contracts', value: fN(national.ended), sub: 'Total closed', accent: C.navy },
+        { label: 'Retained', value: fN(national.retained), sub: `${national.nfr_rate}% retention`, accent: C.teal },
+        { label: 'Early Terminators', value: earlyMultiplier ? `${earlyMultiplier}\u00d7 more likely` : '\u2014', sub: 'to renew vs full-term', accent: C.amber },
+      ]} />
 
-      {/* Trend Chart + Transitions in 2fr/1fr grid */}
+      {/* Trend Chart + Transitions */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
-        {/* Annual Trend */}
-        <Crd>
-          <Sec sub="Year-over-year NFR performance">Annual NFR Trend</Sec>
+        <ChartCard title="Annual NFR Trend" subtitle="Year-over-year NFR performance">
           <ResponsiveContainer width="100%" height={300}>
             <ComposedChart data={yearly}>
               <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
@@ -93,11 +86,9 @@ export default function Overview({ window: win, excludeParam = '' }) {
               <Line yAxisId="right" dataKey="nfr_rate" name="NFR %" stroke={C.green} strokeWidth={3} dot={{ r: 4, fill: C.green }} />
             </ComposedChart>
           </ResponsiveContainer>
-        </Crd>
+        </ChartCard>
 
-        {/* Transitions */}
-        <Crd>
-          <Sec>New/Used Transitions</Sec>
+        <ChartCard title="New/Used Transitions" footer="Most customers follow Used → Used. Minimal cross-over between new and used.">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={transitions} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
@@ -107,45 +98,27 @@ export default function Overview({ window: win, excludeParam = '' }) {
               <Bar dataKey="count" name="Retained" fill={C.navy} radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
-          <div style={{ marginTop: 14, padding: 12, background: `${C.navy}06`, borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.5 }}>Most customers follow Used {'\u2192'} Used. Minimal cross-over between new and used.</div>
-          </div>
-        </Crd>
+        </ChartCard>
       </div>
 
-      {/* Fuel Type & Customer Type Breakdown - 2 column */}
+      {/* Fuel Type & Customer Type */}
       {(fuelSorted.length > 0 || custTypeData.length > 0) && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          {/* Fuel Type */}
           {fuelSorted.length > 0 && (
             <Crd>
               <Sec sub="NFR retention rate by fuel type">Fuel Type Breakdown</Sec>
               <div style={{ display: 'flex', gap: 16 }}>
-                {/* Pie chart for volume */}
                 <div style={{ width: 160, flexShrink: 0 }}>
                   <ResponsiveContainer width="100%" height={160}>
                     <PieChart>
-                      <Pie
-                        data={fuelPie}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={70}
-                        innerRadius={35}
-                        stroke="none"
-                      >
-                        {fuelPie.map((entry, i) => (
-                          <Cell key={i} fill={entry.fill} />
-                        ))}
+                      <Pie data={fuelPie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} innerRadius={35} stroke="none">
+                        {fuelPie.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                       </Pie>
                       <Tooltip formatter={(v) => fN(v)} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div style={{ textAlign: 'center', fontSize: 10, color: C.textMuted, marginTop: 2 }}>Volume by fuel</div>
                 </div>
-
-                {/* Mini table */}
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 55px', gap: '0', fontSize: 10, fontWeight: 700, color: C.textLight, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '0 0 6px', borderBottom: `1px solid ${C.borderLight}` }}>
                     <div>Fuel</div>
@@ -153,14 +126,7 @@ export default function Overview({ window: win, excludeParam = '' }) {
                     <div style={{ textAlign: 'right' }}>NFR %</div>
                   </div>
                   {fuelSorted.map((f, i) => (
-                    <div key={i} style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 60px 55px',
-                      padding: '6px 0',
-                      borderBottom: `1px solid ${C.borderLight}`,
-                      fontSize: 12,
-                      alignItems: 'center',
-                    }}>
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 55px', padding: '6px 0', borderBottom: `1px solid ${C.borderLight}`, fontSize: 12, alignItems: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <div style={{ width: 8, height: 8, borderRadius: 2, background: FUEL_COLORS[i % FUEL_COLORS.length], flexShrink: 0 }} />
                         <span style={{ fontWeight: 600, color: C.navy, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.fuel_type || 'Unknown'}</span>
@@ -174,34 +140,13 @@ export default function Overview({ window: win, excludeParam = '' }) {
             </Crd>
           )}
 
-          {/* Customer Type */}
           {custTypeData.length > 0 && (
             <Crd>
               <Sec sub="NFR retention rate by customer type">Customer Type Breakdown</Sec>
-              <ResponsiveContainer width="100%" height={Math.max(140, custTypeData.length * 50)}>
-                <BarChart data={custTypeData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
-                  <XAxis type="number" {...axisProps} tickFormatter={v => `${v}%`} />
-                  <YAxis dataKey="customer_type" type="category" width={110} tick={{ fill: C.textMid, fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="nfr_rate" name="NFR %" radius={[0, 6, 6, 0]}>
-                    {custTypeData.map((entry, i) => (
-                      <Cell key={i} fill={nfrColor(entry.nfr_rate)} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-              {/* Mini summary tiles */}
+              <NFRBarChart data={custTypeData} categoryKey="customer_type" yAxisWidth={110} />
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${custTypeData.length}, 1fr)`, gap: 8, marginTop: 12 }}>
                 {custTypeData.map((ct, i) => (
-                  <div key={i} style={{
-                    background: C.bg, borderRadius: 8, padding: '10px 12px',
-                    borderLeft: `3px solid ${nfrColor(ct.nfr_rate)}`,
-                  }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: C.textLight, textTransform: 'uppercase' }}>{ct.customer_type || 'Unknown'}</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: nfrColor(ct.nfr_rate), marginTop: 2 }}>{ct.nfr_rate}%</div>
-                    <div style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>{fN(ct.ended)} ended</div>
-                  </div>
+                  <StatCard key={i} label={ct.customer_type || 'Unknown'} value={`${ct.nfr_rate}%`} sub={`${fN(ct.ended)} ended`} color={nfrColor(ct.nfr_rate)} />
                 ))}
               </div>
             </Crd>
@@ -209,48 +154,17 @@ export default function Overview({ window: win, excludeParam = '' }) {
         </div>
       )}
 
-      {/* Window Comparison Section */}
+      {/* Window Comparison */}
       {windowComp.length > 0 && (
-        <Crd>
-          <Sec sub="NFR rate across different lookback windows (all use +1 month lookahead)">Window Comparison</Sec>
-
-          {/* 4 metric tiles */}
+        <ChartCard title="Window Comparison" subtitle="NFR rate across different lookback windows (all use +1 month lookahead)"
+          footer="Wider lookback windows capture more renewals. Compare windows to understand how timing affects measured retention.">
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${windowComp.length}, 1fr)`, gap: 12, marginBottom: 20 }}>
             {windowComp.map((w, i) => (
-              <div key={w.key} style={{
-                background: C.bg,
-                borderRadius: 10,
-                padding: '14px 16px',
-                borderLeft: `4px solid ${WIN_COLORS[i % WIN_COLORS.length]}`,
-              }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: C.textLight, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{w.label}</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: nfrColor(w.nfr_rate), lineHeight: 1.2, marginTop: 4 }}>{w.nfr_rate}%</div>
-                <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>{fN(w.retained)} / {fN(w.ended)} retained</div>
-              </div>
+              <StatCard key={w.key} label={w.label} value={`${w.nfr_rate}%`} sub={`${fN(w.retained)} / ${fN(w.ended)} retained`} color={WIN_COLORS[i % WIN_COLORS.length]} />
             ))}
           </div>
-
-          {/* Comparison Bar Chart */}
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={windowComp} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
-              <XAxis type="number" {...axisProps} tickFormatter={v => `${v}%`} />
-              <YAxis dataKey="label" type="category" width={100} tick={{ fill: C.textMid, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="nfr_rate" name="NFR %" radius={[0, 6, 6, 0]}>
-                {windowComp.map((_, i) => (
-                  <Cell key={i} fill={WIN_COLORS[i % WIN_COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-
-          <div style={{ marginTop: 12, padding: 12, background: `${C.navy}06`, borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.5 }}>
-              Wider lookback windows capture more renewals. Compare windows to understand how timing affects measured retention.
-            </div>
-          </div>
-        </Crd>
+          <NFRBarChart data={windowComp} categoryKey="label" colors={WIN_COLORS} yAxisWidth={100} height={220} />
+        </ChartCard>
       )}
 
       {/* Termination Comparison */}
@@ -272,20 +186,15 @@ export default function Overview({ window: win, excludeParam = '' }) {
                   </div>
                   <div style={{ background: C.bg, borderRadius: 4, height: 28, position: 'relative' }}>
                     <div style={{ width: `${barPct}%`, height: '100%', background: color, borderRadius: 4, display: 'flex', alignItems: 'center', paddingLeft: textInside ? 8 : 0 }}>
-                      {textInside && (
-                        <span style={{ fontSize: 11, color: 'white', fontWeight: 600 }}>{fN(data.retained)} / {fN(data.ended)}</span>
-                      )}
+                      {textInside && <span style={{ fontSize: 11, color: 'white', fontWeight: 600 }}>{fN(data.retained)} / {fN(data.ended)}</span>}
                     </div>
-                    {!textInside && (
-                      <span style={{ position: 'absolute', top: '50%', left: `calc(${barPct}% + 8px)`, transform: 'translateY(-50%)', fontSize: 11, color: C.textMid, fontWeight: 600 }}>{fN(data.retained)} / {fN(data.ended)}</span>
-                    )}
+                    {!textInside && <span style={{ position: 'absolute', top: '50%', left: `calc(${barPct}% + 8px)`, transform: 'translateY(-50%)', fontSize: 11, color: C.textMid, fontWeight: 600 }}>{fN(data.retained)} / {fN(data.ended)}</span>}
                   </div>
                 </div>
               );
             })}
           </div>
         )}
-        {/* Critical callout */}
         {earlyMultiplier && (
           <Callout type="red">
             <div style={{ fontSize: 12, color: C.textMid }}>
@@ -296,22 +205,9 @@ export default function Overview({ window: win, excludeParam = '' }) {
       </Crd>
 
       {/* Agreement Type Chart */}
-      <Crd>
-        <Sec>NFR by Agreement Type</Sec>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={agreements} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
-            <XAxis type="number" {...axisProps} tickFormatter={v => `${v}%`} />
-            <YAxis dataKey="agreement_type" type="category" width={120} tick={{ fill: C.textMid, fontSize: 11 }} axisLine={false} tickLine={false} />
-            <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="nfr_rate" name="NFR %" radius={[0, 6, 6, 0]}>
-              {agreements.map((entry, i) => (
-                <Cell key={i} fill={nfrColor(entry.nfr_rate)} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </Crd>
+      <ChartCard title="NFR by Agreement Type">
+        <NFRBarChart data={agreements} categoryKey="agreement_type" height={220} yAxisWidth={120} />
+      </ChartCard>
     </div>
   );
 }

@@ -1,6 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { fetchAPI } from '../api';
-import { Metric, Crd, Sec, TblH, Callout, fN, C } from '../components/shared';
+import React from 'react';
+import { Crd, Sec, Callout, fN, C } from '../components/shared';
+import MetricGrid from '../components/MetricGrid';
+import DataTable from '../components/DataTable';
+import StatCard from '../components/StatCard';
+import LoadingState from '../components/LoadingState';
+import useNFRData from '../hooks/useNFRData';
 
 const confidenceBadge = (conf) => {
   const colors = {
@@ -26,19 +30,19 @@ const METHODS = [
 ];
 
 export default function CustomerMatching() {
-  const [stats, setStats] = useState(null);
-  const [exclCounts, setExclCounts] = useState(null);
+  const { data: stats, loading: statsLoading } = useNFRData('/api/matching/stats', { skipWindow: true });
+  const { data: exclCounts } = useNFRData('/api/exclusion-counts', { skipWindow: true });
 
-  useEffect(() => {
-    fetchAPI('/api/matching/stats').then(setStats).catch(() => {});
-    fetchAPI('/api/exclusion-counts').then(setExclCounts).catch(() => {});
-  }, []);
+  if (statsLoading || !stats) return <LoadingState />;
 
-  if (!stats) return <p style={{ textAlign: 'center', padding: 40, color: C.textMuted }}>Loading...</p>;
+  // Build methods table data by joining METHODS with stats
+  const methodsData = METHODS.map(m => {
+    const methodStats = stats.methods?.find(s => s.method === m.method);
+    return { ...m, pairs: methodStats?.pairs || 0 };
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Navy-tinted callout header */}
       <Callout type="info">
         <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 4 }}>AI/ML Customer Identity Resolution</div>
         <div style={{ fontSize: 13, color: C.textMid, lineHeight: 1.7 }}>
@@ -46,42 +50,25 @@ export default function CustomerMatching() {
         </div>
       </Callout>
 
-      {/* Accent-Striped Metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        <Metric label="Total Contracts" value={fN(stats.total_contracts)} accent={C.navy} />
-        <Metric label="Unique Customers" value={fN(stats.unique_customers)} accent={C.green} />
-        <Metric label="Repeat Customers" value={fN(stats.repeat_customers)} sub={`${stats.repeat_rate}% repeat rate`} accent={C.amber} />
-        <Metric label="Linked Contracts" value={fN(stats.linked_contracts || stats.total_contracts - stats.unique_customers)} sub={`${((1 - stats.unique_customers / stats.total_contracts) * 100).toFixed(1)}%`} accent={C.purple} />
-      </div>
+      <MetricGrid columns={4} metrics={[
+        { label: 'Total Contracts', value: fN(stats.total_contracts), accent: C.navy },
+        { label: 'Unique Customers', value: fN(stats.unique_customers), accent: C.green },
+        { label: 'Repeat Customers', value: fN(stats.repeat_customers), sub: `${stats.repeat_rate}% repeat rate`, accent: C.amber },
+        { label: 'Linked Contracts', value: fN(stats.linked_contracts || stats.total_contracts - stats.unique_customers), sub: `${((1 - stats.unique_customers / stats.total_contracts) * 100).toFixed(1)}%`, accent: C.purple },
+      ]} />
 
-      {/* Methods Table — CSS Grid */}
+      {/* Methods Table */}
       <Crd>
         <Sec>Matching Methods</Sec>
-        <TblH cols={[
-          { l: 'Method', w: '1.2fr' },
-          { l: 'Signal', w: '2fr' },
-          { l: 'Confidence', w: '100px' },
-          { l: 'Match Pairs', w: '100px' },
-        ]} />
-        {METHODS.map((m, i) => {
-          const methodStats = stats.methods?.find(s => s.method === m.method);
-          return (
-            <div key={i} style={{
-              display: 'grid',
-              gridTemplateColumns: '1.2fr 2fr 100px 100px',
-              padding: '10px 16px',
-              borderBottom: `1px solid ${C.borderLight}`,
-              background: i % 2 ? C.bg : C.white,
-              alignItems: 'center',
-              fontSize: 12
-            }}>
-              <div style={{ fontWeight: 600, color: C.navy }}>{m.label}</div>
-              <div style={{ color: C.textMid }}>{m.desc}</div>
-              <div>{confidenceBadge(m.confidence)}</div>
-              <div style={{ fontWeight: 600, color: C.textMid }}>{fN(methodStats?.pairs || 0)}</div>
-            </div>
-          );
-        })}
+        <DataTable
+          columns={[
+            { key: 'label', label: 'Method', width: '1.2fr' },
+            { key: 'desc', label: 'Signal', width: '2fr', render: v => <div style={{ color: C.textMid }}>{v}</div> },
+            { key: 'confidence', label: 'Confidence', width: '100px', render: v => confidenceBadge(v) },
+            { key: 'pairs', label: 'Match Pairs', width: '100px', type: 'number' },
+          ]}
+          data={methodsData}
+        />
       </Crd>
 
       {/* Exclusion Counts */}
@@ -94,21 +81,15 @@ export default function CustomerMatching() {
               { label: 'In Arrears', count: exclCounts.arrears, color: C.amber },
               { label: 'Deceased', count: exclCounts.deceased, color: C.textMid },
               { label: 'Marketing Opt-out', count: exclCounts.optout, color: C.purple },
-            ].map(({ label, count, color }) => {
-              const pct = exclCounts.total > 0 ? ((count / exclCounts.total) * 100).toFixed(1) : 0;
-              return (
-                <div key={label} style={{
-                  background: C.bg,
-                  borderRadius: 10,
-                  padding: '14px 16px',
-                  borderLeft: `4px solid ${color}`,
-                }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: C.textLight, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: C.navy, lineHeight: 1.2, marginTop: 4 }}>{fN(count)}</div>
-                  <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>{pct}% of {fN(exclCounts.total)} contracts</div>
-                </div>
-              );
-            })}
+            ].map(({ label, count, color }) => (
+              <StatCard
+                key={label}
+                label={label}
+                value={fN(count)}
+                sub={`${exclCounts.total > 0 ? ((count / exclCounts.total) * 100).toFixed(1) : 0}% of ${fN(exclCounts.total)} contracts`}
+                color={color}
+              />
+            ))}
           </div>
           {exclCounts.over75 === 0 && exclCounts.arrears === 0 && exclCounts.deceased === 0 && exclCounts.optout === 0 && (
             <Callout type="amber">

@@ -50,7 +50,7 @@ router.get('/api/auth/me', authenticate, asyncHandler((req, res) => {
   if (!user) {
     return res.status(401).json({ error: 'User no longer exists' });
   }
-  res.json({ id: user.id, username: user.username, email: user.email, role: user.role });
+  res.json({ user: { id: user.id, username: user.username, email: user.email, role: user.role } });
 }));
 
 module.exports = router;

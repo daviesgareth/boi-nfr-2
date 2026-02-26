@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { fetchAPI } from '../api';
-import { Crd, Sec, TblH, Callout, nfrColor, fN, C } from '../components/shared';
+import React, { useState } from 'react';
+import { Callout, nfrColor, fN, C } from '../components/shared';
+import ChartCard from '../components/ChartCard';
+import DataTable from '../components/DataTable';
+import useNFRData from '../hooks/useNFRData';
 
-export default function DealerRetention({ window: win, excludeParam = '' }) {
-  const [dealers, setDealers] = useState([]);
+export default function DealerRetention() {
+  const { data: dealers } = useNFRData('/api/nfr/by-dealer', { defaultValue: [] });
   const [search, setSearch] = useState('');
-
-  useEffect(() => {
-    fetchAPI(`/api/nfr/by-dealer?window=${win}${excludeParam}`).then(setDealers).catch(() => {});
-  }, [win, excludeParam]);
 
   const filtered = dealers.filter(d =>
     d.dealer_name?.toLowerCase().includes(search.toLowerCase())
@@ -16,7 +14,6 @@ export default function DealerRetention({ window: win, excludeParam = '' }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Info callout */}
       <Callout type="info">
         <div style={{ fontSize: 13, color: C.textMid, lineHeight: 1.7 }}>
           <strong style={{ color: C.navy }}>Lost to Dealer:</strong>{' '}
@@ -25,67 +22,47 @@ export default function DealerRetention({ window: win, excludeParam = '' }) {
         </div>
       </Callout>
 
-      <Crd>
+      <ChartCard>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <Sec>Dealer Retention Analysis</Sec>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.navy }}>Dealer Retention Analysis</div>
           <input
             type="text"
             placeholder="Search dealers..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{
-              padding: '6px 12px',
-              border: `1px solid ${C.border}`,
-              borderRadius: 6,
-              fontSize: 12,
-              fontFamily: 'var(--font)',
-              width: 220,
-              color: C.navy,
-              outline: 'none'
+              padding: '6px 12px', border: `1px solid ${C.border}`, borderRadius: 6,
+              fontSize: 12, fontFamily: 'var(--font)', width: 220, color: C.navy, outline: 'none',
             }}
           />
         </div>
 
-        {/* CSS Grid Table */}
-        <TblH cols={[
-          { l: 'Dealer', w: '1.3fr' },
-          { l: 'Ended', w: '65px' },
-          { l: 'Same Dlr', w: '80px' },
-          { l: 'Diff Dlr', w: '80px' },
-          { l: 'Total', w: '60px' },
-          { l: 'NFR %', w: '68px' },
-          { l: 'Dlr Ret %', w: '80px' },
-          { l: 'Split', w: '120px' },
-        ]} />
-        {filtered.map((d, i) => {
-          const total = (d.same_dealer_retained || 0) + (d.diff_dealer_retained || 0);
-          const samePct = total > 0 ? ((d.same_dealer_retained || 0) / total * 100) : 0;
-          return (
-            <div key={i} style={{
-              display: 'grid',
-              gridTemplateColumns: '1.3fr 65px 80px 80px 60px 68px 80px 120px',
-              padding: '10px 16px',
-              borderBottom: `1px solid ${C.borderLight}`,
-              background: i % 2 ? C.bg : C.white,
-              alignItems: 'center',
-              fontSize: 12
-            }}>
-              <div style={{ fontWeight: 600, color: C.navy, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.dealer_name}</div>
-              <div style={{ color: C.textMid }}>{fN(d.ended)}</div>
-              <div style={{ color: C.green, fontWeight: 600 }}>{d.same_dealer_retained}</div>
-              <div style={{ color: C.amber, fontWeight: 600 }}>{d.diff_dealer_retained}</div>
-              <div style={{ fontWeight: 600, color: C.textMid }}>{d.total_retained}</div>
-              <div style={{ fontWeight: 700, color: nfrColor(d.nfr_rate) }}>{d.nfr_rate}%</div>
-              <div style={{ fontWeight: 600, color: C.textMid }}>{d.dealer_retained_pct || 0}%</div>
-              <div>
-                <div style={{ display: 'flex', height: 7, borderRadius: 3, overflow: 'hidden', background: C.borderLight }}>
-                  {samePct > 0 && <div style={{ width: `${samePct}%`, background: C.green }} />}
-                  {samePct < 100 && total > 0 && <div style={{ width: `${100 - samePct}%`, background: C.amber }} />}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        <DataTable
+          columns={[
+            { key: 'dealer_name', label: 'Dealer', width: '1.3fr' },
+            { key: 'ended', label: 'Ended', width: '65px', type: 'number' },
+            { key: 'same_dealer_retained', label: 'Same Dlr', width: '80px', render: v => <div style={{ color: C.green, fontWeight: 600 }}>{v}</div> },
+            { key: 'diff_dealer_retained', label: 'Diff Dlr', width: '80px', render: v => <div style={{ color: C.amber, fontWeight: 600 }}>{v}</div> },
+            { key: 'total_retained', label: 'Total', width: '60px', type: 'number' },
+            { key: 'nfr_rate', label: 'NFR %', width: '68px', type: 'nfr' },
+            { key: 'dealer_retained_pct', label: 'Dlr Ret %', width: '80px', render: v => <div style={{ fontWeight: 600, color: C.textMid }}>{v || 0}%</div> },
+            {
+              key: 'same_dealer_retained', label: 'Split', width: '120px',
+              render: (_, row) => {
+                const total = (row.same_dealer_retained || 0) + (row.diff_dealer_retained || 0);
+                const samePct = total > 0 ? ((row.same_dealer_retained || 0) / total * 100) : 0;
+                return (
+                  <div style={{ display: 'flex', height: 7, borderRadius: 3, overflow: 'hidden', background: C.borderLight }}>
+                    {samePct > 0 && <div style={{ width: `${samePct}%`, background: C.green }} />}
+                    {samePct < 100 && total > 0 && <div style={{ width: `${100 - samePct}%`, background: C.amber }} />}
+                  </div>
+                );
+              },
+            },
+          ]}
+          data={filtered}
+        />
+
         {/* Color legend */}
         <div style={{ display: 'flex', gap: 18, padding: '10px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: C.textMuted }}>
@@ -95,7 +72,7 @@ export default function DealerRetention({ window: win, excludeParam = '' }) {
             <div style={{ width: 10, height: 5, borderRadius: 2, background: C.amber }} /> Northridge (diff)
           </div>
         </div>
-      </Crd>
+      </ChartCard>
     </div>
   );
 }

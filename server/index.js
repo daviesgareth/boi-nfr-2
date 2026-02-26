@@ -20,13 +20,15 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 // Serve static files from Vite build output
 app.use(express.static(path.join(__dirname, '..', 'dist')));
 
-// API routes
-app.use(routes);
-
-// SPA fallback - serve index.html for client-side routes (Express 5 syntax)
-app.get('/{*splat}', (req, res) => {
+// SPA fallback for client-side routes — MUST be before API routes
+// so /dashboard/*, /login, etc. get index.html without hitting auth middleware
+app.get('/{*splat}', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
   res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
 });
+
+// API routes (auth middleware applies only to /api/* paths)
+app.use(routes);
 
 // Initialize database and start server
 initDB();

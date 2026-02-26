@@ -1,16 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { fetchAPI } from '../api';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Crd, Sec, TblH, CustomTooltip, nfrColor, fN, C, axisProps, MiniBar, CC } from '../components/shared';
+import React from 'react';
+import { Crd, Sec, nfrColor, fN, C, CC } from '../components/shared';
+import ChartCard from '../components/ChartCard';
+import NFRBarChart from '../components/NFRBarChart';
+import DataTable from '../components/DataTable';
+import useNFRData from '../hooks/useNFRData';
 
-export default function AgreementTerm({ window: win, excludeParam = '' }) {
-  const [agreements, setAgreements] = useState([]);
-  const [terms, setTerms] = useState([]);
-
-  useEffect(() => {
-    fetchAPI(`/api/nfr/by-agreement?window=${win}${excludeParam}`).then(setAgreements).catch(() => {});
-    fetchAPI(`/api/nfr/by-term?window=${win}${excludeParam}`).then(setTerms).catch(() => {});
-  }, [win, excludeParam]);
+export default function AgreementTerm() {
+  const { data: agreements } = useNFRData('/api/nfr/by-agreement', { defaultValue: [] });
+  const { data: terms } = useNFRData('/api/nfr/by-term', { defaultValue: [] });
 
   const bestAgreement = agreements.length > 0 ? agreements.reduce((a, b) => a.nfr_rate > b.nfr_rate ? a : b) : null;
   const bestTerm = terms.length > 0 ? terms.reduce((a, b) => a.nfr_rate > b.nfr_rate ? a : b) : null;
@@ -21,13 +18,8 @@ export default function AgreementTerm({ window: win, excludeParam = '' }) {
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(agreements.length || 4, 6)}, 1fr)`, gap: 12 }}>
         {agreements.map((a, i) => (
           <div key={i} style={{
-            background: C.white,
-            border: `1px solid ${C.border}`,
-            borderRadius: 12,
-            padding: '16px 18px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 14,
+            background: C.white, border: `1px solid ${C.border}`, borderRadius: 12,
+            padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14,
             boxShadow: '0 1px 3px rgba(0,53,95,0.05)',
           }}>
             <div style={{ width: 4, height: 44, borderRadius: 2, background: CC[i % CC.length], flexShrink: 0 }} />
@@ -41,22 +33,9 @@ export default function AgreementTerm({ window: win, excludeParam = '' }) {
       </div>
 
       {/* Term Length Chart */}
-      <Crd>
-        <Sec sub="Retention rate by contract term length">NFR by Term Length</Sec>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={terms}>
-            <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
-            <XAxis dataKey="term_band" {...axisProps} />
-            <YAxis unit="%" {...axisProps} />
-            <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="nfr_rate" name="NFR %" radius={[6, 6, 0, 0]}>
-              {terms.map((entry, i) => (
-                <Cell key={i} fill={nfrColor(entry.nfr_rate)} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </Crd>
+      <ChartCard title="NFR by Term Length" subtitle="Retention rate by contract term length">
+        <NFRBarChart data={terms} categoryKey="term_band" layout="horizontal" height={280} />
+      </ChartCard>
 
       {/* Best Performing Segments */}
       <Crd>
@@ -79,34 +58,19 @@ export default function AgreementTerm({ window: win, excludeParam = '' }) {
         </div>
       </Crd>
 
-      {/* Term Band Detail — CSS Grid Table */}
-      <Crd>
-        <Sec>Term Band Detail</Sec>
-        <TblH cols={[
-          { l: 'Term Band', w: '1fr' },
-          { l: 'Ended', w: '90px' },
-          { l: 'Retained', w: '90px' },
-          { l: 'NFR %', w: '80px' },
-          { l: 'Performance', w: '150px' },
-        ]} />
-        {terms.map((t, i) => (
-          <div key={i} style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 90px 90px 80px 150px',
-            padding: '10px 16px',
-            borderBottom: `1px solid ${C.borderLight}`,
-            background: i % 2 ? C.bg : C.white,
-            alignItems: 'center',
-            fontSize: 12
-          }}>
-            <div style={{ fontWeight: 600, color: C.navy }}>{t.term_band}</div>
-            <div style={{ color: C.textMid }}>{fN(t.ended)}</div>
-            <div style={{ fontWeight: 600, color: C.textMid }}>{fN(t.retained)}</div>
-            <div style={{ fontWeight: 700, color: nfrColor(t.nfr_rate) }}>{t.nfr_rate}%</div>
-            <div><MiniBar value={t.nfr_rate} /></div>
-          </div>
-        ))}
-      </Crd>
+      {/* Term Band Detail Table */}
+      <ChartCard title="Term Band Detail">
+        <DataTable
+          columns={[
+            { key: 'term_band', label: 'Term Band', width: '1fr' },
+            { key: 'ended', label: 'Ended', width: '90px', type: 'number' },
+            { key: 'retained', label: 'Retained', width: '90px', type: 'number' },
+            { key: 'nfr_rate', label: 'NFR %', width: '80px', type: 'nfr' },
+            { key: 'nfr_rate', label: 'Performance', width: '150px', type: 'minibar' },
+          ]}
+          data={terms}
+        />
+      </ChartCard>
     </div>
   );
 }
