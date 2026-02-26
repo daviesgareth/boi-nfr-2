@@ -3,14 +3,14 @@ import { fetchAPI } from '../api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Crd, Sec, TblH, CustomTooltip, nfrColor, fN, C, axisProps, MiniBar, CC } from '../components/shared';
 
-export default function AgreementTerm({ window: win }) {
+export default function AgreementTerm({ window: win, excludeParam = '' }) {
   const [agreements, setAgreements] = useState([]);
   const [terms, setTerms] = useState([]);
 
   useEffect(() => {
-    fetchAPI(`/api/nfr/by-agreement?window=${win}`).then(setAgreements).catch(() => {});
-    fetchAPI(`/api/nfr/by-term?window=${win}`).then(setTerms).catch(() => {});
-  }, [win]);
+    fetchAPI(`/api/nfr/by-agreement?window=${win}${excludeParam}`).then(setAgreements).catch(() => {});
+    fetchAPI(`/api/nfr/by-term?window=${win}${excludeParam}`).then(setTerms).catch(() => {});
+  }, [win, excludeParam]);
 
   const bestAgreement = agreements.length > 0 ? agreements.reduce((a, b) => a.nfr_rate > b.nfr_rate ? a : b) : null;
   const bestTerm = terms.length > 0 ? terms.reduce((a, b) => a.nfr_rate > b.nfr_rate ? a : b) : null;

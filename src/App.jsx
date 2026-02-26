@@ -34,11 +34,19 @@ const selStyle = {
   fontFamily: 'var(--font)',
 };
 
+const EXCLUSION_DEFS = [
+  { key: 'over75', label: 'Over 75' },
+  { key: 'arrears', label: 'In Arrears' },
+  { key: 'deceased', label: 'Deceased' },
+  { key: 'optout', label: 'Mktg Opt-out' },
+];
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const [window, setWindow] = useState('core');
   const [status, setStatus] = useState(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [exclusions, setExclusions] = useState([]);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -56,14 +64,20 @@ export default function App() {
     loadStatus();
   };
 
+  const toggleExclusion = (key) => {
+    setExclusions(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  };
+
+  const excludeParam = exclusions.length > 0 ? `&exclude=${exclusions.join(',')}` : '';
+
   const renderTab = () => {
     switch (activeTab) {
-      case 'overview': return <Overview window={window} />;
-      case 'region': return <RegionGroup window={window} />;
-      case 'dealer': return <DealerRetention window={window} />;
-      case 'atrisk': return <AtRisk />;
-      case 'explorer': return <Explorer window={window} />;
-      case 'agreement': return <AgreementTerm window={window} />;
+      case 'overview': return <Overview window={window} excludeParam={excludeParam} />;
+      case 'region': return <RegionGroup window={window} excludeParam={excludeParam} />;
+      case 'dealer': return <DealerRetention window={window} excludeParam={excludeParam} />;
+      case 'atrisk': return <AtRisk excludeParam={excludeParam} />;
+      case 'explorer': return <Explorer window={window} excludeParam={excludeParam} />;
+      case 'agreement': return <AgreementTerm window={window} excludeParam={excludeParam} />;
       case 'matching': return <CustomerMatching />;
       default: return null;
     }
@@ -113,7 +127,36 @@ export default function App() {
                 <option value="3_3">−3/+3 months</option>
                 <option value="3_6">−3/+6 months</option>
                 <option value="3_12">−3/+12 months</option>
+                <option value="9mo">−9/+1 months</option>
+                <option value="r13mo">−13/+1 months (rolling)</option>
               </select>
+            </div>
+            {/* Exclusion toggles */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Exclude</span>
+              {EXCLUSION_DEFS.map(ex => {
+                const active = exclusions.includes(ex.key);
+                return (
+                  <button
+                    key={ex.key}
+                    onClick={() => toggleExclusion(ex.key)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      border: `1px solid ${active ? 'var(--red)' : 'var(--border)'}`,
+                      background: active ? 'var(--red-bg)' : 'var(--white)',
+                      color: active ? 'var(--red)' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      fontFamily: 'var(--font)',
+                      transition: 'all 0.12s',
+                    }}
+                  >
+                    {active ? '× ' : ''}{ex.label}
+                  </button>
+                );
+              })}
             </div>
             {status && (
               <div style={{

@@ -3,16 +3,16 @@ import { fetchAPI } from '../api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Metric, Crd, Sec, TblH, CustomTooltip, nfrColor, fN, C, axisProps, MiniBar } from '../components/shared';
 
-export default function RegionGroup({ window: win }) {
+export default function RegionGroup({ window: win, excludeParam = '' }) {
   const [regions, setRegions] = useState([]);
   const [groups, setGroups] = useState([]);
   const [national, setNational] = useState(null);
 
   useEffect(() => {
-    fetchAPI(`/api/nfr/by-region?window=${win}`).then(setRegions).catch(() => {});
-    fetchAPI(`/api/nfr/by-dealer-group?window=${win}`).then(setGroups).catch(() => {});
-    fetchAPI(`/api/nfr/national?window=${win}`).then(setNational).catch(() => {});
-  }, [win]);
+    fetchAPI(`/api/nfr/by-region?window=${win}${excludeParam}`).then(setRegions).catch(() => {});
+    fetchAPI(`/api/nfr/by-dealer-group?window=${win}${excludeParam}`).then(setGroups).catch(() => {});
+    fetchAPI(`/api/nfr/national?window=${win}${excludeParam}`).then(setNational).catch(() => {});
+  }, [win, excludeParam]);
 
   const bestRegion = regions.length > 0 ? regions.reduce((a, b) => a.nfr_rate > b.nfr_rate ? a : b) : null;
   const bestGroup = groups.length > 0 ? groups.reduce((a, b) => a.nfr_rate > b.nfr_rate ? a : b) : null;

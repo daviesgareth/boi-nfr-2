@@ -47,17 +47,33 @@ function initDB() {
     );
   `);
 
-  // --- Migrate nfr_results: detect old schema and recreate if needed ---
+  // --- Migrate contracts: add exclusion flag columns if missing ---
+  const contractInfo = db.prepare("PRAGMA table_info(contracts)").all();
+  const hasAgeCol = contractInfo.some(c => c.name === 'cust_age_at_app');
+
+  if (!hasAgeCol) {
+    console.log('Adding exclusion flag columns to contracts...');
+    db.exec(`
+      ALTER TABLE contracts ADD COLUMN cust_age_at_app INTEGER;
+      ALTER TABLE contracts ADD COLUMN age_over_75 INTEGER DEFAULT 0;
+      ALTER TABLE contracts ADD COLUMN in_arrears INTEGER DEFAULT 0;
+      ALTER TABLE contracts ADD COLUMN is_deceased INTEGER DEFAULT 0;
+      ALTER TABLE contracts ADD COLUMN marketing_optout INTEGER DEFAULT 0;
+    `);
+  }
+
+  // --- Migrate nfr_results: detect old/missing schema and recreate if needed ---
   const tableInfo = db.prepare("PRAGMA table_info(nfr_results)").all();
   const hasOldCols = tableInfo.some(c => c.name === 'retained_1mo');
   const hasNewCols = tableInfo.some(c => c.name === 'retained_core');
+  const has9mo = tableInfo.some(c => c.name === 'retained_9mo');
 
-  if (hasOldCols && !hasNewCols) {
-    console.log('Migrating nfr_results from old schema (1mo/3mo/6mo/12mo) to new (core/6_1/3_3/3_6/3_12)...');
+  if ((hasOldCols && !hasNewCols) || (hasNewCols && !has9mo)) {
+    console.log('Migrating nfr_results schema (adding 9mo/r13mo windows)...');
     db.exec('DROP TABLE IF EXISTS nfr_results');
   }
 
-  // Create nfr_results table with new window columns
+  // Create nfr_results table with all window columns
   db.exec(`
     CREATE TABLE IF NOT EXISTS nfr_results (
       contract_id TEXT PRIMARY KEY REFERENCES contracts(contract_id),
@@ -66,6 +82,8 @@ function initDB() {
       retained_3_3 INTEGER DEFAULT 0,
       retained_3_6 INTEGER DEFAULT 0,
       retained_3_12 INTEGER DEFAULT 0,
+      retained_9mo INTEGER DEFAULT 0,
+      retained_r13mo INTEGER DEFAULT 0,
       next_contract_id TEXT,
       same_dealer INTEGER,
       brand_loyal INTEGER,

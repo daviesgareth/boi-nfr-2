@@ -29,7 +29,7 @@ const exSel = {
   fontFamily: 'var(--font)',
 };
 
-export default function Explorer({ window: win }) {
+export default function Explorer({ window: win, excludeParam = '' }) {
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [groupBy, setGroupBy] = useState('make');
   const [data, setData] = useState([]);
@@ -37,11 +37,11 @@ export default function Explorer({ window: win }) {
 
   useEffect(() => {
     Promise.all([
-      fetchAPI('/api/nfr/by-region?window=' + win).catch(() => []),
-      fetchAPI('/api/nfr/by-agreement?window=' + win).catch(() => []),
-      fetchAPI('/api/nfr/by-term?window=' + win).catch(() => []),
-      fetchAPI('/api/nfr/by-year?window=' + win).catch(() => []),
-      fetchAPI('/api/nfr/by-make?window=' + win).catch(() => []),
+      fetchAPI(`/api/nfr/by-region?window=${win}${excludeParam}`).catch(() => []),
+      fetchAPI(`/api/nfr/by-agreement?window=${win}${excludeParam}`).catch(() => []),
+      fetchAPI(`/api/nfr/by-term?window=${win}${excludeParam}`).catch(() => []),
+      fetchAPI(`/api/nfr/by-year?window=${win}${excludeParam}`).catch(() => []),
+      fetchAPI(`/api/nfr/by-make?window=${win}${excludeParam}`).catch(() => []),
     ]).then(([regions, agreements, terms, years, makes]) => {
       setFilterOptions({
         regions: regions.map(r => r.region).filter(Boolean),
@@ -51,17 +51,22 @@ export default function Explorer({ window: win }) {
         makes: makes.map(m => m.make).filter(Boolean),
       });
     });
-  }, [win]);
+  }, [win, excludeParam]);
 
   useEffect(() => {
     const params = new URLSearchParams();
     params.set('groupBy', groupBy);
     params.set('window', win);
+    // Append exclusions
+    if (excludeParam) {
+      const excl = excludeParam.replace(/^&/, '').split('=');
+      if (excl.length === 2) params.set(excl[0], excl[1]);
+    }
     Object.entries(filters).forEach(([k, v]) => {
       if (v) params.set(k, v);
     });
     fetchAPI(`/api/explorer?${params}`).then(setData).catch(() => setData([]));
-  }, [filters, groupBy, win]);
+  }, [filters, groupBy, win, excludeParam]);
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
   const resetFilters = () => setFilters(INITIAL_FILTERS);

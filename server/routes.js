@@ -32,8 +32,33 @@ function getRetainedCol(window) {
     '3_3': 'retained_3_3',
     '3_6': 'retained_3_6',
     '3_12': 'retained_3_12',
+    '9mo': 'retained_9mo',
+    'r13mo': 'retained_r13mo',
   };
   return map[window] || 'retained_core';
+}
+
+// ---------------------------------------------------------------------------
+// Helper: build exclusion WHERE conditions from ?exclude=over75,arrears,...
+// ---------------------------------------------------------------------------
+function getExclusionConditions(query) {
+  const conditions = [];
+  const excludeStr = query.exclude || '';
+  const exclusions = excludeStr.split(',').filter(Boolean);
+  for (const ex of exclusions) {
+    switch (ex) {
+      case 'over75': conditions.push('c.age_over_75 = 0'); break;
+      case 'arrears': conditions.push('c.in_arrears = 0'); break;
+      case 'deceased': conditions.push('c.is_deceased = 0'); break;
+      case 'optout': conditions.push('c.marketing_optout = 0'); break;
+    }
+  }
+  return conditions;
+}
+
+function buildExclusionClause(query) {
+  const conditions = getExclusionConditions(query);
+  return conditions.length > 0 ? ' AND ' + conditions.join(' AND ') : '';
 }
 
 // ---------------------------------------------------------------------------
@@ -77,13 +102,14 @@ router.get('/api/status', (req, res) => {
 router.get('/api/nfr/national', (req, res) => {
   try {
     const retainedCol = getRetainedCol(req.query.window);
+    const excl = buildExclusionClause(req.query);
     const row = db.prepare(`
       SELECT
         COUNT(*) AS ended,
         SUM(n.${retainedCol}) AS retained
       FROM contracts c
       JOIN nfr_results n ON n.contract_id = c.contract_id
-      WHERE c.is_open = 0
+      WHERE c.is_open = 0${excl}
     `).get();
 
     const ended = row.ended || 0;
@@ -103,6 +129,7 @@ router.get('/api/nfr/national', (req, res) => {
 router.get('/api/nfr/by-year', (req, res) => {
   try {
     const retainedCol = getRetainedCol(req.query.window);
+    const excl = buildExclusionClause(req.query);
     const rows = db.prepare(`
       SELECT
         substr(c.end_date, 1, 4) AS year,
@@ -110,7 +137,7 @@ router.get('/api/nfr/by-year', (req, res) => {
         SUM(n.${retainedCol}) AS retained
       FROM contracts c
       JOIN nfr_results n ON n.contract_id = c.contract_id
-      WHERE c.is_open = 0
+      WHERE c.is_open = 0${excl}
       GROUP BY year
       ORDER BY year
     `).all();
@@ -135,6 +162,7 @@ router.get('/api/nfr/by-year', (req, res) => {
 router.get('/api/nfr/by-region', (req, res) => {
   try {
     const retainedCol = getRetainedCol(req.query.window);
+    const excl = buildExclusionClause(req.query);
     const rows = db.prepare(`
       SELECT
         c.region,
@@ -142,7 +170,7 @@ router.get('/api/nfr/by-region', (req, res) => {
         SUM(n.${retainedCol}) AS retained
       FROM contracts c
       JOIN nfr_results n ON n.contract_id = c.contract_id
-      WHERE c.is_open = 0
+      WHERE c.is_open = 0${excl}
       GROUP BY c.region
       ORDER BY (CAST(SUM(n.${retainedCol}) AS REAL) / COUNT(*)) DESC
     `).all();
@@ -167,6 +195,7 @@ router.get('/api/nfr/by-region', (req, res) => {
 router.get('/api/nfr/by-agreement', (req, res) => {
   try {
     const retainedCol = getRetainedCol(req.query.window);
+    const excl = buildExclusionClause(req.query);
     const rows = db.prepare(`
       SELECT
         c.agreement_type,
@@ -174,7 +203,7 @@ router.get('/api/nfr/by-agreement', (req, res) => {
         SUM(n.${retainedCol}) AS retained
       FROM contracts c
       JOIN nfr_results n ON n.contract_id = c.contract_id
-      WHERE c.is_open = 0
+      WHERE c.is_open = 0${excl}
       GROUP BY c.agreement_type
       ORDER BY (CAST(SUM(n.${retainedCol}) AS REAL) / COUNT(*)) DESC
     `).all();
@@ -199,6 +228,7 @@ router.get('/api/nfr/by-agreement', (req, res) => {
 router.get('/api/nfr/by-term', (req, res) => {
   try {
     const retainedCol = getRetainedCol(req.query.window);
+    const excl = buildExclusionClause(req.query);
     const rows = db.prepare(`
       SELECT
         c.term_band,
@@ -206,7 +236,7 @@ router.get('/api/nfr/by-term', (req, res) => {
         SUM(n.${retainedCol}) AS retained
       FROM contracts c
       JOIN nfr_results n ON n.contract_id = c.contract_id
-      WHERE c.is_open = 0
+      WHERE c.is_open = 0${excl}
       GROUP BY c.term_band
       ORDER BY
         CASE c.term_band
@@ -239,6 +269,7 @@ router.get('/api/nfr/by-term', (req, res) => {
 router.get('/api/nfr/by-dealer-group', (req, res) => {
   try {
     const retainedCol = getRetainedCol(req.query.window);
+    const excl = buildExclusionClause(req.query);
     const rows = db.prepare(`
       SELECT
         c.dealer_group,
@@ -248,7 +279,7 @@ router.get('/api/nfr/by-dealer-group', (req, res) => {
         SUM(CASE WHEN n.${retainedCol} = 1 AND (n.same_dealer = 0 OR n.same_dealer IS NULL) THEN 1 ELSE 0 END) AS diff_dealer
       FROM contracts c
       JOIN nfr_results n ON n.contract_id = c.contract_id
-      WHERE c.is_open = 0
+      WHERE c.is_open = 0${excl}
       GROUP BY c.dealer_group
       ORDER BY (CAST(SUM(n.${retainedCol}) AS REAL) / COUNT(*)) DESC
       LIMIT 50
@@ -276,6 +307,7 @@ router.get('/api/nfr/by-dealer-group', (req, res) => {
 router.get('/api/nfr/by-dealer', (req, res) => {
   try {
     const retainedCol = getRetainedCol(req.query.window);
+    const excl = buildExclusionClause(req.query);
     const rows = db.prepare(`
       SELECT
         c.dealer_name,
@@ -285,7 +317,7 @@ router.get('/api/nfr/by-dealer', (req, res) => {
         SUM(n.${retainedCol}) AS total_retained
       FROM contracts c
       JOIN nfr_results n ON n.contract_id = c.contract_id
-      WHERE c.is_open = 0
+      WHERE c.is_open = 0${excl}
       GROUP BY c.dealer_name
       ORDER BY COUNT(*) DESC
       LIMIT 100
@@ -317,6 +349,7 @@ router.get('/api/nfr/by-dealer', (req, res) => {
 router.get('/api/nfr/by-make', (req, res) => {
   try {
     const retainedCol = getRetainedCol(req.query.window);
+    const excl = buildExclusionClause(req.query);
     const rows = db.prepare(`
       SELECT
         c.make,
@@ -324,7 +357,7 @@ router.get('/api/nfr/by-make', (req, res) => {
         SUM(n.${retainedCol}) AS retained
       FROM contracts c
       JOIN nfr_results n ON n.contract_id = c.contract_id
-      WHERE c.is_open = 0
+      WHERE c.is_open = 0${excl}
         AND c.make IS NOT NULL
         AND c.make != ''
       GROUP BY c.make
@@ -352,12 +385,14 @@ router.get('/api/nfr/by-make', (req, res) => {
 router.get('/api/nfr/transitions', (req, res) => {
   try {
     const retainedCol = getRetainedCol(req.query.window);
+    const excl = buildExclusionClause(req.query);
     const rows = db.prepare(`
       SELECT
         n.transition,
         COUNT(*) AS count
       FROM nfr_results n
-      WHERE n.${retainedCol} = 1
+      JOIN contracts c ON c.contract_id = n.contract_id
+      WHERE n.${retainedCol} = 1${excl}
       GROUP BY n.transition
       ORDER BY count DESC
     `).all();
@@ -375,6 +410,7 @@ router.get('/api/nfr/transitions', (req, res) => {
 router.get('/api/nfr/termination', (req, res) => {
   try {
     const retainedCol = getRetainedCol(req.query.window);
+    const excl = buildExclusionClause(req.query);
 
     const earlyRow = db.prepare(`
       SELECT
@@ -382,7 +418,7 @@ router.get('/api/nfr/termination', (req, res) => {
         SUM(n.${retainedCol}) AS retained
       FROM contracts c
       JOIN nfr_results n ON n.contract_id = c.contract_id
-      WHERE c.is_open = 0 AND c.ended_early = 1
+      WHERE c.is_open = 0 AND c.ended_early = 1${excl}
     `).get();
 
     const fullRow = db.prepare(`
@@ -391,7 +427,7 @@ router.get('/api/nfr/termination', (req, res) => {
         SUM(n.${retainedCol}) AS retained
       FROM contracts c
       JOIN nfr_results n ON n.contract_id = c.contract_id
-      WHERE c.is_open = 0 AND c.ended_early = 0
+      WHERE c.is_open = 0 AND c.ended_early = 0${excl}
     `).get();
 
     const earlyEnded = earlyRow.ended || 0;
@@ -427,15 +463,19 @@ router.get('/api/nfr/at-risk', (req, res) => {
     sixMonths.setMonth(sixMonths.getMonth() + 6);
     const sixMonthsStr = sixMonths.toISOString().slice(0, 10);
 
+    // Build at-risk exclusion clause (uses contracts directly, no alias needed — add alias)
+    const exclConditions = getExclusionConditions(req.query);
+    const exclStr = exclConditions.length > 0 ? ' AND ' + exclConditions.join(' AND ').replace(/\bc\./g, '') : '';
+
     // Monthly breakdown of at-risk contracts
     const monthly = db.prepare(`
       SELECT
         substr(end_date, 1, 7) AS month,
         COUNT(*) AS count
-      FROM contracts
-      WHERE is_open = 1
-        AND end_date >= ?
-        AND end_date <= ?
+      FROM contracts c
+      WHERE c.is_open = 1
+        AND c.end_date >= ?
+        AND c.end_date <= ?${buildExclusionClause(req.query)}
       GROUP BY month
       ORDER BY month
     `).all(today, sixMonthsStr);
@@ -443,30 +483,30 @@ router.get('/api/nfr/at-risk', (req, res) => {
     // Total at-risk
     const totalRow = db.prepare(`
       SELECT COUNT(*) AS total
-      FROM contracts
-      WHERE is_open = 1
-        AND end_date >= ?
-        AND end_date <= ?
+      FROM contracts c
+      WHERE c.is_open = 1
+        AND c.end_date >= ?
+        AND c.end_date <= ?${buildExclusionClause(req.query)}
     `).get(today, sixMonthsStr);
 
     // Segment: PCP ending
     const pcpRow = db.prepare(`
       SELECT COUNT(*) AS count
-      FROM contracts
-      WHERE is_open = 1
-        AND end_date >= ?
-        AND end_date <= ?
-        AND agreement_type = 'Select (PCP)'
+      FROM contracts c
+      WHERE c.is_open = 1
+        AND c.end_date >= ?
+        AND c.end_date <= ?
+        AND c.agreement_type = 'Select (PCP)'${buildExclusionClause(req.query)}
     `).get(today, sixMonthsStr);
 
     // Segment: optimal term band
     const optimalRow = db.prepare(`
       SELECT COUNT(*) AS count
-      FROM contracts
-      WHERE is_open = 1
-        AND end_date >= ?
-        AND end_date <= ?
-        AND term_band = '37-48 mo'
+      FROM contracts c
+      WHERE c.is_open = 1
+        AND c.end_date >= ?
+        AND c.end_date <= ?
+        AND c.term_band = '37-48 mo'${buildExclusionClause(req.query)}
     `).get(today, sixMonthsStr);
 
     res.json({
@@ -479,6 +519,50 @@ router.get('/api/nfr/at-risk', (req, res) => {
     });
   } catch (err) {
     console.error('At-risk error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/nfr/window-comparison  -- NFR rates across comparison windows
+// ---------------------------------------------------------------------------
+router.get('/api/nfr/window-comparison', (req, res) => {
+  try {
+    const excl = buildExclusionClause(req.query);
+
+    // Map comparison labels to actual retained columns
+    // 3mo -> core (same: -3/+1), 6mo -> 6_1 (same: -6/+1), 9mo and r13mo are new
+    const windowsToCompare = [
+      { label: '3 Month', key: '3mo', col: 'retained_core' },
+      { label: '6 Month', key: '6mo', col: 'retained_6_1' },
+      { label: '9 Month', key: '9mo', col: 'retained_9mo' },
+      { label: '13 Month', key: 'r13mo', col: 'retained_r13mo' },
+    ];
+
+    const results = windowsToCompare.map(w => {
+      const row = db.prepare(`
+        SELECT
+          COUNT(*) AS ended,
+          SUM(n.${w.col}) AS retained
+        FROM contracts c
+        JOIN nfr_results n ON n.contract_id = c.contract_id
+        WHERE c.is_open = 0${excl}
+      `).get();
+
+      const ended = row.ended || 0;
+      const retained = row.retained || 0;
+      return {
+        label: w.label,
+        key: w.key,
+        ended,
+        retained,
+        nfr_rate: ended > 0 ? Math.round((retained / ended) * 10000) / 100 : 0,
+      };
+    });
+
+    res.json(results);
+  } catch (err) {
+    console.error('Window comparison error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -545,6 +629,10 @@ router.get('/api/explorer', (req, res) => {
     } else if (termination === 'full') {
       conditions.push("c.ended_early = 0");
     }
+
+    // Add exclusion conditions
+    const exclConds = getExclusionConditions(req.query);
+    conditions.push(...exclConds);
 
     const whereClause = conditions.join(' AND ');
 

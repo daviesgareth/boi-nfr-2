@@ -131,12 +131,14 @@ function ingestFile(filePath) {
       contract_id, sortname, phone, postcode, bank_sortcode, account_number,
       start_date, end_date, term_months, credit_amount, residual_amount,
       finance_type, agreement_type, new_used, make, model, dealer_ref,
-      dealer_name, dealer_group, is_open, how_closed, ended_early, region, term_band
+      dealer_name, dealer_group, is_open, how_closed, ended_early, region, term_band,
+      cust_age_at_app, age_over_75, in_arrears, is_deceased, marketing_optout
     ) VALUES (
       @contract_id, @sortname, @phone, @postcode, @bank_sortcode, @account_number,
       @start_date, @end_date, @term_months, @credit_amount, @residual_amount,
       @finance_type, @agreement_type, @new_used, @make, @model, @dealer_ref,
-      @dealer_name, @dealer_group, @is_open, @how_closed, @ended_early, @region, @term_band
+      @dealer_name, @dealer_group, @is_open, @how_closed, @ended_early, @region, @term_band,
+      @cust_age_at_app, @age_over_75, @in_arrears, @is_deceased, @marketing_optout
     )
   `);
 
@@ -183,6 +185,11 @@ function ingestFile(filePath) {
     const termBand = getTermBand(termMonths);
     const endedEarly = computeEndedEarly(isOpen === 0, startDate, endDate, termMonths);
 
+    // Exclusion flags
+    const custAgeAtApp = row['CUST AGE AT APP'] != null ? Number(row['CUST AGE AT APP']) : null;
+    const ageOver75 = (custAgeAtApp != null && termMonths != null &&
+      custAgeAtApp + Math.ceil(termMonths / 12) > 75) ? 1 : 0;
+
     return {
       contract_id: contractId,
       sortname,
@@ -208,6 +215,11 @@ function ingestFile(filePath) {
       ended_early: endedEarly,
       region,
       term_band: termBand,
+      cust_age_at_app: custAgeAtApp,
+      age_over_75: ageOver75,
+      in_arrears: 0,
+      is_deceased: 0,
+      marketing_optout: 0,
     };
   }).filter(Boolean);
 

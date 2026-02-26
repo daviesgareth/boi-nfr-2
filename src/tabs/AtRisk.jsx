@@ -3,12 +3,12 @@ import { fetchAPI } from '../api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Metric, Crd, Sec, CustomTooltip, Callout, fN, C, axisProps } from '../components/shared';
 
-export default function AtRisk() {
+export default function AtRisk({ excludeParam = '' }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    fetchAPI('/api/nfr/at-risk').then(setData).catch(() => {});
-  }, []);
+    fetchAPI(`/api/nfr/at-risk?_=1${excludeParam}`).then(setData).catch(() => {});
+  }, [excludeParam]);
 
   if (!data) return <p style={{ textAlign: 'center', padding: 40, color: C.textMuted }}>Loading...</p>;
 

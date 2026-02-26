@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { fetchAPI } from '../api';
 import { Crd, Sec, TblH, Callout, nfrColor, fN, C } from '../components/shared';
 
-export default function DealerRetention({ window: win }) {
+export default function DealerRetention({ window: win, excludeParam = '' }) {
   const [dealers, setDealers] = useState([]);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    fetchAPI(`/api/nfr/by-dealer?window=${win}`).then(setDealers).catch(() => {});
-  }, [win]);
+    fetchAPI(`/api/nfr/by-dealer?window=${win}${excludeParam}`).then(setDealers).catch(() => {});
+  }, [win, excludeParam]);
 
   const filtered = dealers.filter(d =>
     d.dealer_name?.toLowerCase().includes(search.toLowerCase())
