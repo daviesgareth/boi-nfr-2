@@ -64,4 +64,12 @@ router.get('/api/nfr/window-comparison', asyncHandler((req, res) => {
   res.json(nfr.getWindowComparison(req.filterClause));
 }));
 
+router.get('/api/nfr/retention-curve', asyncHandler((req, res) => {
+  res.json(nfr.getRetentionCurve(req.filterClause));
+}));
+
+router.get('/api/nfr/trend', asyncHandler((req, res) => {
+  res.json(nfr.getTrend(req.retainedCol, req.filterClause));
+}));
+
 module.exports = router;

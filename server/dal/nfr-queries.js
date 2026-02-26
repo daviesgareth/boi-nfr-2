@@ -323,6 +323,78 @@ function getWindowComparison(excl) {
 }
 
 // ---------------------------------------------------------------------------
+// Retention curve — when do customers come back? Monthly buckets -6 to +24
+// ---------------------------------------------------------------------------
+function getRetentionCurve(excl) {
+  // Get the day gap between contract end and next contract start
+  const rows = db.prepare(`
+    SELECT
+      CAST(ROUND((julianday(next_c.start_date) - julianday(c.end_date)) / 30.44) AS INTEGER) AS month_offset,
+      COUNT(*) AS count
+    FROM contracts c
+    JOIN nfr_results n ON n.contract_id = c.contract_id
+    JOIN contracts next_c ON next_c.contract_id = n.next_contract_id
+    WHERE c.is_open = 0
+      AND n.next_contract_id IS NOT NULL${excl}
+    GROUP BY month_offset
+    ORDER BY month_offset
+  `).all();
+
+  const totalRow = db.prepare(`
+    SELECT COUNT(*) AS total
+    FROM contracts c
+    JOIN nfr_results n ON n.contract_id = c.contract_id
+    WHERE c.is_open = 0${excl}
+  `).get();
+
+  const total = totalRow.total || 0;
+
+  // Build histogram from -6 to +24
+  const buckets = {};
+  for (const r of rows) {
+    buckets[r.month_offset] = r.count;
+  }
+
+  let cumulative = 0;
+  const curve = [];
+  for (let m = -6; m <= 24; m++) {
+    const count = buckets[m] || 0;
+    cumulative += count;
+    curve.push({
+      month: m,
+      count,
+      cumulative,
+      rate: total > 0 ? Math.round((cumulative / total) * 10000) / 100 : 0,
+    });
+  }
+
+  return { total, curve };
+}
+
+// ---------------------------------------------------------------------------
+// Monthly trend — NFR rate by month over time
+// ---------------------------------------------------------------------------
+function getTrend(retainedCol, excl) {
+  return db.prepare(`
+    SELECT
+      substr(c.end_date, 1, 7) AS month,
+      COUNT(*) AS ended,
+      SUM(n.${retainedCol}) AS retained
+    FROM contracts c
+    JOIN nfr_results n ON n.contract_id = c.contract_id
+    WHERE c.is_open = 0
+      AND c.end_date IS NOT NULL${excl}
+    GROUP BY substr(c.end_date, 1, 7)
+    ORDER BY month
+  `).all().map(r => ({
+    month: r.month,
+    ended: r.ended,
+    retained: r.retained || 0,
+    nfr_rate: nfrRate(r.retained, r.ended),
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // Explorer (dynamic groupBy + filters)
 // ---------------------------------------------------------------------------
 const ALLOWED_GROUP_BY = {
@@ -399,6 +471,8 @@ module.exports = {
   getTermination,
   getAtRisk,
   getWindowComparison,
+  getRetentionCurve,
+  getTrend,
   getExplorerData,
   ALLOWED_GROUP_BY,
 };

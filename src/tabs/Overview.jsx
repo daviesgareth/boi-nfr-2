@@ -1,212 +1,272 @@
-import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Legend, Cell, Line, PieChart, Pie } from 'recharts';
+import React, { useMemo } from 'react';
+import {
+  AreaChart, Area, LineChart, Line, ScatterChart, Scatter,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  ReferenceLine, ZAxis, Cell,
+} from 'recharts';
 import { Crd, Sec, CustomTooltip, Callout, nfrColor, fN, C, axisProps } from '../components/shared';
 import MetricGrid from '../components/MetricGrid';
 import ChartCard from '../components/ChartCard';
-import NFRBarChart from '../components/NFRBarChart';
-import StatCard from '../components/StatCard';
 import LoadingState from '../components/LoadingState';
 import useNFRData from '../hooks/useNFRData';
 import { useFilters } from '../contexts/FilterContext';
 
 const WINDOW_LABELS = {
-  'core': '-3/+1 mo', '6_1': '-6/+1 mo', '3_6': '-3/+6 mo',
-  '3_9': '-3/+9 mo', '3_12': '-3/+12 mo', '3_18': '-3/+18 mo',
-};
-const WINDOW_DEFS = {
-  'core': { lookback: '3 months', lookahead: '1 month' },
-  '6_1': { lookback: '6 months', lookahead: '1 month' },
-  '3_6': { lookback: '3 months', lookahead: '6 months' },
-  '3_9': { lookback: '3 months', lookahead: '9 months' },
-  '3_12': { lookback: '3 months', lookahead: '12 months' },
-  '3_18': { lookback: '3 months', lookahead: '18 months' },
+  'core': '-3/+1', '6_1': '-6/+1', '3_6': '-3/+6',
+  '3_9': '-3/+9', '3_12': '-3/+12', '3_18': '-3/+18',
 };
 
-const WIN_COLORS = [C.navy, C.iceDark, C.teal, C.purple, C.green, C.amber];
-const FUEL_COLORS = [C.navy, '#3B82F6', C.teal, '#10B981', C.amber, C.purple, '#EC4899', '#6366F1', '#F97316', '#78716C'];
+// Quadrant colours
+const Q_COLORS = {
+  star: C.green,       // high volume, high rate
+  opportunity: C.red,  // high volume, low rate
+  niche: C.teal,       // low volume, high rate
+  watch: '#94A3B8',    // low volume, low rate
+};
+
+function quadrant(ended, nfr_rate, medianVol, avgRate) {
+  const highVol = ended >= medianVol;
+  const highRate = nfr_rate >= avgRate;
+  if (highVol && highRate) return 'star';
+  if (highVol && !highRate) return 'opportunity';
+  if (!highVol && highRate) return 'niche';
+  return 'watch';
+}
+
+function median(arr) {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// Custom scatter tooltip
+const ScatterTooltipContent = ({ active, payload }) => {
+  if (!active || !payload?.length) return null;
+  const d = payload[0]?.payload;
+  if (!d) return null;
+  return (
+    <div style={{
+      background: 'white', border: `1px solid ${C.border}`, borderRadius: 8,
+      padding: '10px 14px', boxShadow: '0 4px 12px rgba(0,53,95,0.1)',
+      fontSize: 12, lineHeight: 1.6,
+    }}>
+      <div style={{ fontWeight: 700, color: C.navy, marginBottom: 2 }}>{d.name}</div>
+      <div style={{ color: C.textMid }}>Volume: <strong>{fN(d.ended)}</strong> contracts</div>
+      <div style={{ color: C.textMid }}>NFR: <strong style={{ color: nfrColor(d.nfr_rate) }}>{d.nfr_rate}%</strong></div>
+      <div style={{ color: C.textMid }}>Retained: <strong>{fN(d.retained)}</strong></div>
+    </div>
+  );
+};
+
+// Custom curve tooltip
+const CurveTooltipContent = ({ active, payload }) => {
+  if (!active || !payload?.length) return null;
+  const d = payload[0]?.payload;
+  if (!d) return null;
+  const label = d.month === 0 ? 'At end date' : d.month > 0 ? `+${d.month} months after` : `${d.month} months before`;
+  return (
+    <div style={{
+      background: 'white', border: `1px solid ${C.border}`, borderRadius: 8,
+      padding: '10px 14px', boxShadow: '0 4px 12px rgba(0,53,95,0.1)',
+      fontSize: 12, lineHeight: 1.6,
+    }}>
+      <div style={{ fontWeight: 700, color: C.navy }}>{label}</div>
+      <div style={{ color: C.textMid }}>Cumulative retention: <strong style={{ color: C.green }}>{d.rate}%</strong></div>
+      <div style={{ color: C.textMuted }}>{fN(d.count)} matched this month ({fN(d.cumulative)} total)</div>
+    </div>
+  );
+};
 
 export default function Overview() {
   const { window: win } = useFilters();
   const { data: national, loading } = useNFRData('/api/nfr/national');
-  const { data: yearly } = useNFRData('/api/nfr/by-year', { defaultValue: [] });
-  const { data: transitions } = useNFRData('/api/nfr/transitions', { defaultValue: [] });
-  const { data: termination } = useNFRData('/api/nfr/termination');
-  const { data: agreements } = useNFRData('/api/nfr/by-agreement', { defaultValue: [] });
-  const { data: windowComp } = useNFRData('/api/nfr/window-comparison', { skipWindow: true, defaultValue: [] });
-  const { data: fuelData } = useNFRData('/api/nfr/by-fuel', { defaultValue: [] });
-  const { data: custTypeData } = useNFRData('/api/nfr/by-customer-type', { defaultValue: [] });
+  const { data: curveData } = useNFRData('/api/nfr/retention-curve');
+  const { data: trend, loading: trendLoading } = useNFRData('/api/nfr/trend', { defaultValue: [] });
+  const { data: regions } = useNFRData('/api/nfr/by-region', { defaultValue: [] });
+  const { data: dealerGroups } = useNFRData('/api/nfr/by-dealer-group', { defaultValue: [] });
+
+  // Compute scatter data for regions
+  const scatterData = useMemo(() => {
+    if (!regions.length) return { points: [], medianVol: 0, avgRate: 0 };
+    const vols = regions.map(r => r.ended);
+    const medianVol = median(vols);
+    const totalEnded = regions.reduce((s, r) => s + r.ended, 0);
+    const totalRetained = regions.reduce((s, r) => s + r.retained, 0);
+    const avgRate = totalEnded > 0 ? Math.round((totalRetained / totalEnded) * 10000) / 100 : 0;
+
+    const points = regions.map(r => ({
+      name: r.region,
+      ended: r.ended,
+      nfr_rate: r.nfr_rate,
+      retained: r.retained,
+      q: quadrant(r.ended, r.nfr_rate, medianVol, avgRate),
+    }));
+    return { points, medianVol, avgRate };
+  }, [regions]);
+
+  // Compute trend direction
+  const trendDirection = useMemo(() => {
+    if (trend.length < 2) return null;
+    const recent = trend.slice(-3);
+    const prior = trend.slice(-6, -3);
+    if (prior.length === 0) return null;
+    const recentAvg = recent.reduce((s, r) => s + r.nfr_rate, 0) / recent.length;
+    const priorAvg = prior.reduce((s, r) => s + r.nfr_rate, 0) / prior.length;
+    const diff = recentAvg - priorAvg;
+    return { diff: Math.round(diff * 100) / 100, up: diff > 0 };
+  }, [trend]);
 
   if (loading || !national) return <LoadingState />;
 
-  const wl = WINDOW_LABELS[win] || 'Core (-3/+1)';
-  const wd = WINDOW_DEFS[win] || WINDOW_DEFS['core'];
-  const earlyMultiplier = termination && termination.full_term?.nfr_rate > 0
-    ? (termination.early?.nfr_rate / termination.full_term.nfr_rate).toFixed(0)
-    : null;
-
-  const fuelSorted = [...fuelData].sort((a, b) => (b.ended || 0) - (a.ended || 0));
-  const fuelPie = fuelSorted.map((f, i) => ({
-    name: f.fuel_type || 'Unknown',
-    value: f.ended || 0,
-    fill: FUEL_COLORS[i % FUEL_COLORS.length],
-  }));
+  const wl = WINDOW_LABELS[win] || '-3/+1';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* NFR Definition Callout */}
-      <Callout type="info">
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 4 }}>NFR KPI Definition</div>
-        <p style={{ fontSize: 13, color: C.textMid, lineHeight: 1.7, margin: 0 }}>
-          <strong style={{ color: C.navy }}>Northridge Finance Retention (NFR)</strong> = % of ended contracts where the same customer started a new contract within a window from <strong>{wd.lookback} before</strong> the end date to <strong>{wd.lookahead} after</strong>.
-        </p>
-      </Callout>
-
-      {/* KPI Metrics */}
+      {/* 1. KPI Headline Row */}
       <MetricGrid columns={4} metrics={[
-        { label: `NFR @ ${wl}`, value: `${national.nfr_rate}%`, sub: `${fN(national.retained)} of ${fN(national.ended)} renewed`, accent: C.green, large: true },
-        { label: 'Ended Contracts', value: fN(national.ended), sub: 'Total closed', accent: C.navy },
-        { label: 'Retained', value: fN(national.retained), sub: `${national.nfr_rate}% retention`, accent: C.teal },
-        { label: 'Early Terminators', value: earlyMultiplier ? `${earlyMultiplier}\u00d7 more likely` : '\u2014', sub: 'to renew vs full-term', accent: C.amber },
+        {
+          label: `NFR Rate (${wl})`,
+          value: `${national.nfr_rate}%`,
+          sub: `${fN(national.retained)} of ${fN(national.ended)} retained`,
+          accent: nfrColor(national.nfr_rate),
+          large: true,
+        },
+        {
+          label: 'Ended Contracts',
+          value: fN(national.ended),
+          sub: 'In selected period',
+          accent: C.navy,
+        },
+        {
+          label: 'Retained',
+          value: fN(national.retained),
+          sub: 'Customers who renewed',
+          accent: C.teal,
+        },
+        {
+          label: 'Trend',
+          value: trendDirection
+            ? `${trendDirection.up ? '\u25B2' : '\u25BC'} ${Math.abs(trendDirection.diff)}pp`
+            : '\u2014',
+          sub: trendDirection
+            ? `vs prior 3 months${trendDirection.up ? ' \u2014 improving' : ' \u2014 declining'}`
+            : 'Not enough data',
+          accent: trendDirection ? (trendDirection.up ? C.green : C.red) : C.textMuted,
+        },
       ]} />
 
-      {/* Trend Chart + Transitions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
-        <ChartCard title="Annual NFR Trend" subtitle="Year-over-year NFR performance">
-          <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={yearly}>
+      {/* 2. Retention Curve — the centrepiece */}
+      {curveData && curveData.curve && (
+        <ChartCard
+          title="Retention Curve"
+          subtitle="When do customers come back? Cumulative % of ended contracts matched to a new contract by months relative to end date"
+        >
+          <ResponsiveContainer width="100%" height={340}>
+            <AreaChart data={curveData.curve} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
+              <defs>
+                <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={C.navy} stopOpacity={0.15} />
+                  <stop offset="95%" stopColor={C.navy} stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
-              <XAxis dataKey="year" {...axisProps} />
-              <YAxis yAxisId="left" {...axisProps} />
-              <YAxis yAxisId="right" orientation="right" {...axisProps} domain={[0, 'auto']} unit="%" />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Bar yAxisId="left" dataKey="ended" name="Ended" fill={C.navy} radius={[6, 6, 0, 0]} opacity={0.7} />
-              <Bar yAxisId="left" dataKey="retained" name="Retained" fill={C.iceDark} radius={[6, 6, 0, 0]} />
-              <Line yAxisId="right" dataKey="nfr_rate" name="NFR %" stroke={C.green} strokeWidth={3} dot={{ r: 4, fill: C.green }} />
-            </ComposedChart>
+              <XAxis
+                dataKey="month"
+                {...axisProps}
+                label={{ value: 'Months from contract end', position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: C.textMuted } }}
+                tickFormatter={v => v === 0 ? '0' : v > 0 ? `+${v}` : `${v}`}
+              />
+              <YAxis {...axisProps} unit="%" domain={[0, 'auto']} />
+              <Tooltip content={<CurveTooltipContent />} />
+              <ReferenceLine x={0} stroke={C.amber} strokeDasharray="4 4" strokeWidth={2} label={{ value: 'End date', position: 'top', style: { fontSize: 10, fill: C.amber, fontWeight: 600 } }} />
+              <Area type="monotone" dataKey="rate" stroke={C.navy} strokeWidth={2.5} fill="url(#curveGrad)" dot={false} activeDot={{ r: 5, fill: C.navy }} />
+            </AreaChart>
           </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="New/Used Transitions" footer="Most customers follow Used → Used. Minimal cross-over between new and used.">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={transitions} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
-              <XAxis type="number" {...axisProps} />
-              <YAxis dataKey="transition" type="category" width={120} {...axisProps} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="count" name="Retained" fill={C.navy} radius={[0, 6, 6, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      {/* Fuel Type & Customer Type */}
-      {(fuelSorted.length > 0 || custTypeData.length > 0) && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          {fuelSorted.length > 0 && (
-            <Crd>
-              <Sec sub="NFR retention rate by fuel type">Fuel Type Breakdown</Sec>
-              <div style={{ display: 'flex', gap: 16 }}>
-                <div style={{ width: 160, flexShrink: 0 }}>
-                  <ResponsiveContainer width="100%" height={160}>
-                    <PieChart>
-                      <Pie data={fuelPie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} innerRadius={35} stroke="none">
-                        {fuelPie.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                      </Pie>
-                      <Tooltip formatter={(v) => fN(v)} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div style={{ textAlign: 'center', fontSize: 10, color: C.textMuted, marginTop: 2 }}>Volume by fuel</div>
-                </div>
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 55px', gap: '0', fontSize: 10, fontWeight: 700, color: C.textLight, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '0 0 6px', borderBottom: `1px solid ${C.borderLight}` }}>
-                    <div>Fuel</div>
-                    <div style={{ textAlign: 'right' }}>Ended</div>
-                    <div style={{ textAlign: 'right' }}>NFR %</div>
-                  </div>
-                  {fuelSorted.map((f, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 55px', padding: '6px 0', borderBottom: `1px solid ${C.borderLight}`, fontSize: 12, alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: 2, background: FUEL_COLORS[i % FUEL_COLORS.length], flexShrink: 0 }} />
-                        <span style={{ fontWeight: 600, color: C.navy, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.fuel_type || 'Unknown'}</span>
-                      </div>
-                      <div style={{ textAlign: 'right', color: C.textMid }}>{fN(f.ended)}</div>
-                      <div style={{ textAlign: 'right', fontWeight: 700, color: nfrColor(f.nfr_rate) }}>{f.nfr_rate}%</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Crd>
-          )}
-
-          {custTypeData.length > 0 && (
-            <Crd>
-              <Sec sub="NFR retention rate by customer type">Customer Type Breakdown</Sec>
-              <NFRBarChart data={custTypeData} categoryKey="customer_type" yAxisWidth={110} />
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${custTypeData.length}, 1fr)`, gap: 8, marginTop: 12 }}>
-                {custTypeData.map((ct, i) => (
-                  <StatCard key={i} label={ct.customer_type || 'Unknown'} value={`${ct.nfr_rate}%`} sub={`${fN(ct.ended)} ended`} color={nfrColor(ct.nfr_rate)} />
-                ))}
-              </div>
-            </Crd>
-          )}
-        </div>
-      )}
-
-      {/* Window Comparison */}
-      {windowComp.length > 0 && (
-        <ChartCard title="Window Comparison" subtitle="NFR rate across different lookback windows (all use +1 month lookahead)"
-          footer="Wider lookback windows capture more renewals. Compare windows to understand how timing affects measured retention.">
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${windowComp.length}, 1fr)`, gap: 12, marginBottom: 20 }}>
-            {windowComp.map((w, i) => (
-              <StatCard key={w.key} label={w.label} value={`${w.nfr_rate}%`} sub={`${fN(w.retained)} / ${fN(w.ended)} retained`} color={WIN_COLORS[i % WIN_COLORS.length]} />
-            ))}
-          </div>
-          <NFRBarChart data={windowComp} categoryKey="label" colors={WIN_COLORS} yAxisWidth={100} height={220} />
-        </ChartCard>
-      )}
-
-      {/* Termination Comparison */}
-      <Crd>
-        <Sec>Termination Type Comparison</Sec>
-        {termination && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 0' }}>
+          <div style={{ display: 'flex', gap: 24, padding: '12px 0 0', justifyContent: 'center' }}>
             {[
-              { label: 'Early Terminators', data: termination.early, color: C.amber },
-              { label: 'Full Term', data: termination.full_term, color: C.navy }
-            ].map(({ label, data, color }) => {
-              const barPct = Math.min(data.nfr_rate * 5, 100);
-              const textInside = barPct >= 25;
-              return (
-                <div key={label}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: C.textMid }}>{label}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: nfrColor(data.nfr_rate) }}>{data.nfr_rate}%</span>
-                  </div>
-                  <div style={{ background: C.bg, borderRadius: 4, height: 28, position: 'relative' }}>
-                    <div style={{ width: `${barPct}%`, height: '100%', background: color, borderRadius: 4, display: 'flex', alignItems: 'center', paddingLeft: textInside ? 8 : 0 }}>
-                      {textInside && <span style={{ fontSize: 11, color: 'white', fontWeight: 600 }}>{fN(data.retained)} / {fN(data.ended)}</span>}
-                    </div>
-                    {!textInside && <span style={{ position: 'absolute', top: '50%', left: `calc(${barPct}% + 8px)`, transform: 'translateY(-50%)', fontSize: 11, color: C.textMid, fontWeight: 600 }}>{fN(data.retained)} / {fN(data.ended)}</span>}
-                  </div>
+              { label: 'At end date', month: 0 },
+              { label: '+3 months', month: 3 },
+              { label: '+6 months', month: 6 },
+              { label: '+12 months', month: 12 },
+              { label: '+18 months', month: 18 },
+            ].map(({ label, month }) => {
+              const point = curveData.curve.find(p => p.month === month);
+              return point ? (
+                <div key={month} style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: C.navy }}>{point.rate}%</div>
+                  <div style={{ fontSize: 10, color: C.textMuted, fontWeight: 600 }}>{label}</div>
                 </div>
-              );
+              ) : null;
             })}
           </div>
-        )}
-        {earlyMultiplier && (
-          <Callout type="red">
-            <div style={{ fontSize: 12, color: C.textMid }}>
-              <strong style={{ color: C.red }}>Critical:</strong> Early terminators are <strong>{earlyMultiplier}{'\u00d7'} more likely</strong> to renew.
-            </div>
-          </Callout>
-        )}
-      </Crd>
+        </ChartCard>
+      )}
 
-      {/* Agreement Type Chart */}
-      <ChartCard title="NFR by Agreement Type">
-        <NFRBarChart data={agreements} categoryKey="agreement_type" height={220} yAxisWidth={120} />
+      {/* 3. Volume vs Rate — Scatter Quadrant */}
+      <ChartCard
+        title="Where to Focus"
+        subtitle="Each dot is a region. Size = volume. Top-right = performing well. Bottom-right = biggest opportunity to improve."
+      >
+        <div style={{ display: 'flex', gap: 12, padding: '0 0 8px', flexWrap: 'wrap' }}>
+          {[
+            { color: Q_COLORS.star, label: 'Stars', desc: 'High vol, high NFR' },
+            { color: Q_COLORS.opportunity, label: 'Opportunities', desc: 'High vol, low NFR' },
+            { color: Q_COLORS.niche, label: 'Niche', desc: 'Low vol, high NFR' },
+            { color: Q_COLORS.watch, label: 'Watch', desc: 'Low vol, low NFR' },
+          ].map(({ color, label, desc }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />
+              <span style={{ fontWeight: 600, color: C.navy }}>{label}</span>
+              <span style={{ color: C.textMuted }}>({desc})</span>
+            </div>
+          ))}
+        </div>
+        <ResponsiveContainer width="100%" height={360}>
+          <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
+            <XAxis
+              dataKey="ended" type="number" name="Volume" {...axisProps}
+              label={{ value: 'Ended contracts (volume)', position: 'insideBottom', offset: -8, style: { fontSize: 11, fill: C.textMuted } }}
+              tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
+            />
+            <YAxis
+              dataKey="nfr_rate" type="number" name="NFR %" {...axisProps} unit="%"
+              label={{ value: 'NFR Rate %', angle: -90, position: 'insideLeft', offset: 15, style: { fontSize: 11, fill: C.textMuted } }}
+            />
+            <ZAxis dataKey="ended" range={[60, 400]} />
+            <Tooltip content={<ScatterTooltipContent />} />
+            {scatterData.avgRate > 0 && (
+              <ReferenceLine y={scatterData.avgRate} stroke={C.textMuted} strokeDasharray="4 4"
+                label={{ value: `Avg ${scatterData.avgRate}%`, position: 'right', style: { fontSize: 10, fill: C.textMuted } }}
+              />
+            )}
+            {scatterData.medianVol > 0 && (
+              <ReferenceLine x={scatterData.medianVol} stroke={C.textMuted} strokeDasharray="4 4" />
+            )}
+            <Scatter data={scatterData.points} shape="circle">
+              {scatterData.points.map((p, i) => (
+                <Cell key={i} fill={Q_COLORS[p.q]} fillOpacity={0.8} stroke={Q_COLORS[p.q]} strokeWidth={1} />
+              ))}
+            </Scatter>
+          </ScatterChart>
+        </ResponsiveContainer>
       </ChartCard>
+
+      {/* 4. Monthly Trend */}
+      {trend.length > 0 && (
+        <ChartCard title="NFR Trend Over Time" subtitle="Monthly retention rate — is it improving?">
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={trend} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
+              <XAxis dataKey="month" {...axisProps} interval={Math.max(0, Math.floor(trend.length / 12))} />
+              <YAxis {...axisProps} unit="%" domain={['auto', 'auto']} />
+              <Tooltip content={<CustomTooltip />} />
+              <Line type="monotone" dataKey="nfr_rate" name="NFR %" stroke={C.navy} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: C.navy }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      )}
     </div>
   );
 }
