@@ -220,9 +220,9 @@ export default function UserManagement() {
                 <div style={{ fontWeight: 600, color: C.navy }}>{u.username}</div>
                 <div style={{ color: C.textMid }}>{u.email}</div>
                 <div>{roleBadge(u.role)}</div>
-                <div style={{ fontSize: 11, color: C.textMuted }}>{new Date(u.created_at).toLocaleDateString()}</div>
+                <div style={{ fontSize: 11, color: C.textMuted }}>{new Date(u.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</div>
                 <div style={{ fontSize: 11, color: u.last_login ? C.textMid : C.textMuted }}>
-                  {u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}
+                  {u.last_login ? new Date(u.last_login.replace(' ', 'T') + 'Z').toLocaleString() : 'Never'}
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button

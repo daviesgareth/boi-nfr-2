@@ -18,6 +18,7 @@ const AgreementTerm = lazy(() => import('./tabs/AgreementTerm'));
 const CustomerMatching = lazy(() => import('./tabs/CustomerMatching'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const DataManagement = lazy(() => import('./pages/DataManagement'));
+const Wiki = lazy(() => import('./pages/Wiki'));
 
 const SuspenseWrap = ({ children }) => (
   <Suspense fallback={<LoadingState />}>{children}</Suspense>
@@ -46,6 +47,7 @@ export default function App() {
             <Route path="explorer" element={<SuspenseWrap><Explorer /></SuspenseWrap>} />
             <Route path="agreements" element={<SuspenseWrap><AgreementTerm /></SuspenseWrap>} />
             <Route path="matching" element={<SuspenseWrap><CustomerMatching /></SuspenseWrap>} />
+            <Route path="wiki" element={<SuspenseWrap><Wiki /></SuspenseWrap>} />
             <Route
               path="admin"
               element={

@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { db } = require('../db');
 const { asyncHandler } = require('../middleware/error-handler');
-const { logAction, getAuditLog, getAuditCount } = require('../dal/audit-queries');
+const { logAction, getAuditLog, getAuditCount, getAuditUsers } = require('../dal/audit-queries');
 
 const router = express.Router();
 
@@ -71,16 +71,18 @@ router.post('/api/admin/purge', asyncHandler((req, res) => {
   res.json({ success: true, purged_contracts: contractCount });
 }));
 
-// GET /api/admin/audit-log — paginated audit log
+// GET /api/admin/audit-log — paginated audit log with category + username filters
 router.get('/api/admin/audit-log', asyncHandler((req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+  const limit = Math.min(parseInt(req.query.limit) || 30, 200);
   const offset = parseInt(req.query.offset) || 0;
   const category = req.query.category || null;
+  const username = req.query.username || null;
 
-  const entries = getAuditLog({ limit, offset, category });
-  const total = getAuditCount(category);
+  const entries = getAuditLog({ limit, offset, category, username });
+  const total = getAuditCount({ category, username });
+  const users = getAuditUsers();
 
-  res.json({ entries, total, limit, offset });
+  res.json({ entries, total, limit, offset, users });
 }));
 
 module.exports = router;

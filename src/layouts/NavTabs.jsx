@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Shield } from 'lucide-react';
+import { Shield, BookOpen } from 'lucide-react';
 
 const TABS = [
   { to: '/dashboard/overview', label: 'NFR Overview' },
@@ -44,6 +44,19 @@ export default function NavTabs() {
           {tab.label}
         </NavLink>
       ))}
+      <NavLink
+        to="/dashboard/wiki"
+        style={({ isActive }) => ({
+          ...tabStyle(isActive),
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          marginLeft: 'auto',
+        })}
+      >
+        <BookOpen size={12} />
+        Guide
+      </NavLink>
       {isAdmin && (
         <NavLink
           to="/dashboard/admin"
@@ -52,7 +65,6 @@ export default function NavTabs() {
             display: 'flex',
             alignItems: 'center',
             gap: 5,
-            marginLeft: 'auto',
           })}
         >
           <Shield size={12} />

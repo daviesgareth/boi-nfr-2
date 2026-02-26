@@ -3,7 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { fetchAPI, postAPI, uploadFile } from '../api';
 import { Crd, Sec, Callout, Pill, C, fN } from '../components/shared';
 import MetricGrid from '../components/MetricGrid';
-import { Database, Upload, Trash2, Activity, Clock, HardDrive, FileUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Database, Upload, Trash2, Activity, Clock, HardDrive, FileUp, AlertTriangle, CheckCircle, ChevronLeft, ChevronRight, User } from 'lucide-react';
 
 const ACTION_LABELS = {
   data_upload: 'Data Upload',
@@ -45,7 +45,10 @@ function formatBytes(bytes) {
 function formatDateTime(dt) {
   if (!dt) return '\u2014';
   try {
-    const d = new Date(dt.includes('T') ? dt : dt + 'T00:00:00Z');
+    // SQLite datetime: "YYYY-MM-DD HH:MM:SS" — replace space with T, append Z for UTC
+    const iso = dt.includes('T') ? dt : dt.replace(' ', 'T') + 'Z';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return dt;
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
       ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   } catch { return dt; }
@@ -54,13 +57,16 @@ function formatDateTime(dt) {
 function formatDate(dt) {
   if (!dt) return '\u2014';
   try {
-    const d = new Date(dt.includes('T') ? dt : dt + 'T00:00:00Z');
+    // Handle both ISO and SQLite date formats
+    const iso = dt.includes('T') ? dt : dt.replace(' ', 'T') + 'Z';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return dt;
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   } catch { return dt; }
 }
 
 const gridRow = {
-  display: 'grid', gridTemplateColumns: '160px 110px 140px 1fr',
+  display: 'grid', gridTemplateColumns: '170px 110px 170px 1fr',
   padding: '10px 16px', fontSize: 12, alignItems: 'center',
 };
 
@@ -75,9 +81,13 @@ export default function DataManagement() {
   const [auditLog, setAuditLog] = useState([]);
   const [auditTotal, setAuditTotal] = useState(0);
   const [auditCategory, setAuditCategory] = useState(null);
-  const [auditOffset, setAuditOffset] = useState(0);
+  const [auditUser, setAuditUser] = useState(null);
+  const [auditUsers, setAuditUsers] = useState([]);
+  const [auditPage, setAuditPage] = useState(1);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const PAGE_SIZE = 20;
 
   const flash = useCallback((msg) => {
     setSuccess(msg);
@@ -92,20 +102,21 @@ export default function DataManagement() {
     setLoading(false);
   }, []);
 
-  const loadAuditLog = useCallback(async (reset = false) => {
+  const loadAuditLog = useCallback(async (page = 1) => {
     try {
-      const off = reset ? 0 : auditOffset;
-      const catParam = auditCategory ? `&category=${auditCategory}` : '';
-      const d = await fetchAPI(`/api/admin/audit-log?limit=30&offset=${off}${catParam}`);
-      setAuditLog(reset ? d.entries : [...auditLog, ...d.entries]);
+      const offset = (page - 1) * PAGE_SIZE;
+      const params = new URLSearchParams({ limit: PAGE_SIZE, offset });
+      if (auditCategory) params.set('category', auditCategory);
+      if (auditUser) params.set('username', auditUser);
+      const d = await fetchAPI(`/api/admin/audit-log?${params}`);
+      setAuditLog(d.entries);
       setAuditTotal(d.total);
-      if (reset) setAuditOffset(d.entries.length);
-      else setAuditOffset(off + d.entries.length);
+      if (d.users) setAuditUsers(d.users);
     } catch (e) { setError(e.message); }
-  }, [auditCategory, auditOffset, auditLog]);
+  }, [auditCategory, auditUser]);
 
   useEffect(() => { loadOverview(); }, [loadOverview]);
-  useEffect(() => { loadAuditLog(true); }, [auditCategory]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setAuditPage(1); loadAuditLog(1); }, [auditCategory, auditUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Upload dropzone
   const onDrop = useCallback(async (acceptedFiles) => {
@@ -118,7 +129,8 @@ export default function DataManagement() {
       setUploadResult(result);
       flash(`Uploaded ${result.contracts?.toLocaleString()} contracts, ${result.customers?.toLocaleString()} customers matched`);
       loadOverview();
-      loadAuditLog(true);
+      setAuditPage(1);
+      loadAuditLog(1);
     } catch (e) {
       setError(e.message);
     }
@@ -141,7 +153,8 @@ export default function DataManagement() {
       flash(`Purged ${result.purged_contracts?.toLocaleString()} contracts and all associated data`);
       setPurgeInput('');
       loadOverview();
-      loadAuditLog(true);
+      setAuditPage(1);
+      loadAuditLog(1);
     } catch (e) {
       setError(e.message);
     }
@@ -373,22 +386,43 @@ export default function DataManagement() {
         <Sec style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <Activity size={16} color={C.navy} />
           <span style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>Audit Log</span>
-          <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 'auto' }}>
-            {auditTotal} total entries
+          <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 'auto', paddingLeft: 12 }}>
+            {auditTotal.toLocaleString()} entries
           </span>
         </Sec>
 
-        {/* Category filter pills */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-          {CATEGORY_PILLS.map(p => (
-            <Pill
-              key={p.key || 'all'}
-              active={auditCategory === p.key}
-              onClick={() => { setAuditCategory(p.key); setAuditOffset(0); }}
+        {/* Filters row: category pills + user dropdown */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {CATEGORY_PILLS.map(p => (
+              <Pill
+                key={p.key || 'all'}
+                active={auditCategory === p.key}
+                onClick={() => setAuditCategory(p.key)}
+              >
+                {p.label}
+              </Pill>
+            ))}
+          </div>
+
+          {/* User filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <User size={13} color={C.textMuted} />
+            <select
+              value={auditUser || ''}
+              onChange={e => setAuditUser(e.target.value || null)}
+              style={{
+                padding: '5px 10px', borderRadius: 6, border: `1px solid ${C.border}`,
+                fontSize: 12, fontWeight: 600, fontFamily: 'var(--font)',
+                color: auditUser ? C.navy : C.textMuted, cursor: 'pointer',
+                background: auditUser ? 'rgba(0,53,95,0.04)' : 'white',
+                outline: 'none',
+              }}
             >
-              {p.label}
-            </Pill>
-          ))}
+              <option value="">All users</option>
+              {auditUsers.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
         </div>
 
         {/* Table header */}
@@ -406,7 +440,7 @@ export default function DataManagement() {
         {/* Rows */}
         {auditLog.length === 0 ? (
           <div style={{ padding: '24px 16px', textAlign: 'center', color: C.textMuted, fontSize: 12 }}>
-            No audit entries yet. Actions like uploads, purges, and user changes will appear here.
+            No audit entries found{auditCategory || auditUser ? ' for these filters' : ''}. Actions like uploads, purges, and user changes will appear here.
           </div>
         ) : (
           auditLog.map((entry, i) => {
@@ -443,21 +477,75 @@ export default function DataManagement() {
           })
         )}
 
-        {/* Load more */}
-        {auditLog.length < auditTotal && (
-          <div style={{ padding: '12px 16px', textAlign: 'center' }}>
-            <button
-              onClick={() => loadAuditLog(false)}
-              style={{
-                padding: '6px 20px', borderRadius: 6, border: `1px solid ${C.border}`,
-                background: 'white', color: C.navy, fontSize: 12, fontWeight: 600,
-                cursor: 'pointer', fontFamily: 'var(--font)',
-              }}
-            >
-              Load more ({auditTotal - auditLog.length} remaining)
-            </button>
-          </div>
-        )}
+        {/* Pagination */}
+        {auditTotal > PAGE_SIZE && (() => {
+          const totalPages = Math.ceil(auditTotal / PAGE_SIZE);
+          const goTo = (p) => { setAuditPage(p); loadAuditLog(p); };
+
+          // Build page numbers: always show first, last, and a window around current
+          const pages = [];
+          for (let p = 1; p <= totalPages; p++) {
+            if (p === 1 || p === totalPages || (p >= auditPage - 1 && p <= auditPage + 1)) {
+              pages.push(p);
+            } else if (pages[pages.length - 1] !== '...') {
+              pages.push('...');
+            }
+          }
+
+          const btnBase = {
+            padding: '5px 10px', borderRadius: 6, border: `1px solid ${C.border}`,
+            fontSize: 12, fontWeight: 600, fontFamily: 'var(--font)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 4,
+          };
+
+          return (
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '12px 16px', borderTop: `1px solid ${C.borderLight}`,
+            }}>
+              <span style={{ fontSize: 11, color: C.textMuted }}>
+                Showing {((auditPage - 1) * PAGE_SIZE) + 1}\u2013{Math.min(auditPage * PAGE_SIZE, auditTotal)} of {auditTotal.toLocaleString()}
+              </span>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <button
+                  onClick={() => goTo(auditPage - 1)}
+                  disabled={auditPage <= 1}
+                  style={{ ...btnBase, background: 'white', color: auditPage <= 1 ? C.textMuted : C.navy, opacity: auditPage <= 1 ? 0.4 : 1 }}
+                >
+                  <ChevronLeft size={14} /> Prev
+                </button>
+
+                {pages.map((p, i) =>
+                  p === '...' ? (
+                    <span key={`e${i}`} style={{ padding: '0 4px', fontSize: 12, color: C.textMuted }}>...</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => goTo(p)}
+                      style={{
+                        ...btnBase,
+                        minWidth: 32, justifyContent: 'center',
+                        background: p === auditPage ? C.navy : 'white',
+                        color: p === auditPage ? 'white' : C.navy,
+                        border: p === auditPage ? `1px solid ${C.navy}` : `1px solid ${C.border}`,
+                      }}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+
+                <button
+                  onClick={() => goTo(auditPage + 1)}
+                  disabled={auditPage >= totalPages}
+                  style={{ ...btnBase, background: 'white', color: auditPage >= totalPages ? C.textMuted : C.navy, opacity: auditPage >= totalPages ? 0.4 : 1 }}
+                >
+                  Next <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </Crd>
     </div>
   );

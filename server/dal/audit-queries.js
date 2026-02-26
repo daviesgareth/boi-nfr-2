@@ -9,26 +9,52 @@ function logAction(userId, username, action, category, detail) {
   ).run(userId, username, action, category, detail);
 }
 
-function getAuditLog({ limit = 50, offset = 0, category = null } = {}) {
+function getAuditLog({ limit = 50, offset = 0, category = null, username = null } = {}) {
   let sql = 'SELECT * FROM audit_log';
+  const conditions = [];
   const params = [];
+
   if (category) {
-    sql += ' WHERE category = ?';
+    conditions.push('category = ?');
     params.push(category);
   }
+  if (username) {
+    conditions.push('username = ?');
+    params.push(username);
+  }
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ');
+  }
+
   sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
   params.push(limit, offset);
   return db.prepare(sql).all(...params);
 }
 
-function getAuditCount(category = null) {
+function getAuditCount({ category = null, username = null } = {}) {
   let sql = 'SELECT COUNT(*) AS total FROM audit_log';
+  const conditions = [];
   const params = [];
+
   if (category) {
-    sql += ' WHERE category = ?';
+    conditions.push('category = ?');
     params.push(category);
   }
+  if (username) {
+    conditions.push('username = ?');
+    params.push(username);
+  }
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ');
+  }
+
   return db.prepare(sql).get(...params).total;
 }
 
-module.exports = { logAction, getAuditLog, getAuditCount };
+function getAuditUsers() {
+  return db.prepare(
+    'SELECT DISTINCT username FROM audit_log ORDER BY username ASC'
+  ).all().map(r => r.username);
+}
+
+module.exports = { logAction, getAuditLog, getAuditCount, getAuditUsers };
