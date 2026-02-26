@@ -201,10 +201,10 @@ export default function UserManagement() {
         <div>
           {/* Header */}
           <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1.5fr 100px 130px 120px',
+            display: 'grid', gridTemplateColumns: '1fr 1.5fr 100px 130px 130px 120px',
             padding: '10px 16px', background: `${C.navy}08`, borderRadius: '8px 8px 0 0',
           }}>
-            {['Username', 'Email', 'Role', 'Created', ''].map((h, i) => (
+            {['Username', 'Email', 'Role', 'Created', 'Last Login', ''].map((h, i) => (
               <div key={i} style={{ fontSize: 10, fontWeight: 700, color: C.navy, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</div>
             ))}
           </div>
@@ -213,7 +213,7 @@ export default function UserManagement() {
             <React.Fragment key={u.id}>
               {/* User row */}
               <div style={{
-                display: 'grid', gridTemplateColumns: '1fr 1.5fr 100px 130px 120px',
+                display: 'grid', gridTemplateColumns: '1fr 1.5fr 100px 130px 130px 120px',
                 padding: '10px 16px', borderBottom: editingId === u.id ? 'none' : `1px solid ${C.borderLight}`,
                 background: i % 2 ? C.bg : C.white, alignItems: 'center', fontSize: 13,
               }}>
@@ -221,6 +221,9 @@ export default function UserManagement() {
                 <div style={{ color: C.textMid }}>{u.email}</div>
                 <div>{roleBadge(u.role)}</div>
                 <div style={{ fontSize: 11, color: C.textMuted }}>{new Date(u.created_at).toLocaleDateString()}</div>
+                <div style={{ fontSize: 11, color: u.last_login ? C.textMid : C.textMuted }}>
+                  {u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}
+                </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button
                     onClick={() => editingId === u.id ? cancelEdit() : startEdit(u)}

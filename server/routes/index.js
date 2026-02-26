@@ -5,6 +5,7 @@ const express = require('express');
 const { parseNFRParams } = require('../middleware/params');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { errorHandler } = require('../middleware/error-handler');
+const { activityLogger } = require('../middleware/activity-logger');
 
 const authRoutes = require('./auth');
 const userRoutes = require('./users');
@@ -25,6 +26,9 @@ router.use(authenticate);
 
 // Parse window + exclusion params for data routes
 router.use(parseNFRParams);
+
+// Lightweight activity tracking (throttled, fire-and-forget)
+router.use(activityLogger);
 
 // All authenticated users can read data
 router.use(statusRoutes);

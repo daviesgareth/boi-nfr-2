@@ -200,6 +200,12 @@ function initDB() {
     CREATE INDEX IF NOT EXISTS idx_audit_log_category ON audit_log(category);
   `);
 
+  // Migration: add last_login column to users
+  const userCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+  if (!userCols.includes('last_login')) {
+    db.exec("ALTER TABLE users ADD COLUMN last_login TEXT");
+  }
+
   // Seed default admin user if none exists
   const bcrypt = require('bcryptjs');
   const adminExists = db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'").get();

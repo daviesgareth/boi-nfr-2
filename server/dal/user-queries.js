@@ -8,11 +8,15 @@ function findByUsername(username) {
 }
 
 function findById(id) {
-  return db.prepare("SELECT id, username, email, role, created_at, updated_at FROM users WHERE id = ?").get(id);
+  return db.prepare("SELECT id, username, email, role, last_login, created_at, updated_at FROM users WHERE id = ?").get(id);
 }
 
 function listUsers() {
-  return db.prepare("SELECT id, username, email, role, created_at, updated_at FROM users ORDER BY created_at DESC").all();
+  return db.prepare("SELECT id, username, email, role, last_login, created_at, updated_at FROM users ORDER BY created_at DESC").all();
+}
+
+function updateLastLogin(id) {
+  db.prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?").run(id);
 }
 
 function createUser(username, email, passwordHash, role = 'viewer') {
@@ -48,4 +52,4 @@ function countAdmins() {
   return db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'").get().c;
 }
 
-module.exports = { findByUsername, findById, listUsers, createUser, updateUser, updatePassword, deleteUser, countAdmins };
+module.exports = { findByUsername, findById, listUsers, createUser, updateUser, updatePassword, updateLastLogin, deleteUser, countAdmins };

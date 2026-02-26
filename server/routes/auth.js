@@ -5,7 +5,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { asyncHandler } = require('../middleware/error-handler');
 const { authenticate, signToken } = require('../middleware/auth');
-const { findByUsername, updatePassword } = require('../dal/user-queries');
+const { findByUsername, updatePassword, updateLastLogin } = require('../dal/user-queries');
 const { logAction } = require('../dal/audit-queries');
 
 const router = express.Router();
@@ -20,13 +20,18 @@ router.post('/api/auth/login', asyncHandler((req, res) => {
 
   const user = findByUsername(username);
   if (!user) {
+    logAction(null, username, 'login_failed', 'login', `Failed login attempt for unknown user "${username}"`);
     return res.status(401).json({ error: 'Invalid credentials' });
   }
 
   const valid = bcrypt.compareSync(password, user.password_hash);
   if (!valid) {
+    logAction(user.id, username, 'login_failed', 'login', 'Failed login attempt — incorrect password');
     return res.status(401).json({ error: 'Invalid credentials' });
   }
+
+  updateLastLogin(user.id);
+  logAction(user.id, user.username, 'login_success', 'login', `Logged in (role: ${user.role})`);
 
   const token = signToken(user);
   res.json({

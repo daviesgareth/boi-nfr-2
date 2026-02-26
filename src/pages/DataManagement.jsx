@@ -12,10 +12,16 @@ const ACTION_LABELS = {
   user_updated: 'User Updated',
   user_deleted: 'User Deleted',
   user_password_changed: 'Password Changed',
+  password_self_change: 'Password Changed (self)',
+  login_success: 'Login',
+  login_failed: 'Failed Login',
+  page_view: 'Page View',
 };
 
 const CATEGORY_PILLS = [
   { key: null, label: 'All' },
+  { key: 'login', label: 'Logins' },
+  { key: 'activity', label: 'Activity' },
   { key: 'upload', label: 'Uploads' },
   { key: 'purge', label: 'Purges' },
   { key: 'user', label: 'User Changes' },
@@ -25,6 +31,8 @@ const CATEGORY_COLORS = {
   upload: { bg: '#ECFDF5', color: C.green },
   purge: { bg: '#FEF2F2', color: C.red },
   user: { bg: '#DBEAFE', color: '#1E40AF' },
+  login: { bg: '#FEF3C7', color: '#92400E' },
+  activity: { bg: '#F0F9FF', color: '#0369A1' },
 };
 
 function formatBytes(bytes) {

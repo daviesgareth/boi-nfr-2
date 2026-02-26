@@ -52,6 +52,7 @@ export default function NavTabs() {
             display: 'flex',
             alignItems: 'center',
             gap: 5,
+            marginLeft: 'auto',
           })}
         >
           <Shield size={12} />
