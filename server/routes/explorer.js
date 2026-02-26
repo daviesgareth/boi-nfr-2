@@ -14,7 +14,7 @@ router.get('/api/explorer', asyncHandler((req, res) => {
     return res.status(400).json({ error: 'groupBy parameter is required' });
   }
 
-  const result = getExplorerData(req.retainedCol, req.exclusionConditions, {
+  const result = getExplorerData(req.retainedCol, req.filterConditions, {
     groupBy,
     filters: { year, region, make, agreement_type, term_band, new_used, termination, fuel_type, customer_type },
   });

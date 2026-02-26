@@ -10,20 +10,19 @@ import useNFRData from '../hooks/useNFRData';
 import { useFilters } from '../contexts/FilterContext';
 
 const WINDOW_LABELS = {
-  'core': 'Core (-3/+1)', '6_1': '-6/+1 mo', '3_3': '-3/+3 mo', '3_6': '-3/+6 mo', '3_12': '-3/+12 mo',
-  '9mo': '-9/+1 mo', 'r13mo': '-13/+1 mo (rolling)',
+  'core': '-3/+1 mo', '6_1': '-6/+1 mo', '3_6': '-3/+6 mo',
+  '3_9': '-3/+9 mo', '3_12': '-3/+12 mo', '3_18': '-3/+18 mo',
 };
 const WINDOW_DEFS = {
   'core': { lookback: '3 months', lookahead: '1 month' },
   '6_1': { lookback: '6 months', lookahead: '1 month' },
-  '3_3': { lookback: '3 months', lookahead: '3 months' },
   '3_6': { lookback: '3 months', lookahead: '6 months' },
+  '3_9': { lookback: '3 months', lookahead: '9 months' },
   '3_12': { lookback: '3 months', lookahead: '12 months' },
-  '9mo': { lookback: '9 months', lookahead: '1 month' },
-  'r13mo': { lookback: '13 months', lookahead: '1 month' },
+  '3_18': { lookback: '3 months', lookahead: '18 months' },
 };
 
-const WIN_COLORS = [C.navy, C.iceDark, C.teal, C.purple];
+const WIN_COLORS = [C.navy, C.iceDark, C.teal, C.purple, C.green, C.amber];
 const FUEL_COLORS = [C.navy, '#3B82F6', C.teal, '#10B981', C.amber, C.purple, '#EC4899', '#6366F1', '#F97316', '#78716C'];
 
 export default function Overview() {

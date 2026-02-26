@@ -3,13 +3,13 @@ import { fetchAPI } from '../api';
 import { useFilters } from '../contexts/FilterContext';
 
 /**
- * Custom hook that fetches NFR data with automatic window/exclusion params.
+ * Custom hook that fetches NFR data with automatic window/exclusion/timeframe params.
  *
  * Usage:
  *   const { data, loading, error } = useNFRData('/api/nfr/by-region');
  *
  * Options:
- *   - skipWindow: boolean — don't append window param (e.g. for matching/status)
+ *   - skipWindow: boolean — don't append window/timeframe param (e.g. for matching/status)
  *   - extraParams: string — additional query params (e.g. '&groupBy=make')
  *   - deps: array — additional dependency values to trigger refetch
  *   - defaultValue: any — initial value for data (default: null)
@@ -20,7 +20,7 @@ export default function useNFRData(endpoint, {
   deps = [],
   defaultValue = null,
 } = {}) {
-  const { window: win, excludeParam } = useFilters();
+  const { window: win, excludeParam, timeframeParam } = useFilters();
   const [data, setData] = useState(defaultValue);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -35,10 +35,12 @@ export default function useNFRData(endpoint, {
     if (!skipWindow) {
       url += `${separator}window=${win}`;
       url += excludeParam;
+      url += timeframeParam;
     } else {
-      // Still add a cache-buster and exclusions
+      // Still add exclusions and timeframe (backend decides whether to use them)
       url += `${separator}_=1`;
       url += excludeParam;
+      url += timeframeParam;
     }
 
     if (extraParams) {
@@ -55,7 +57,7 @@ export default function useNFRData(endpoint, {
         setLoading(false);
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint, win, excludeParam, extraParams, ...deps]);
+  }, [endpoint, win, excludeParam, timeframeParam, extraParams, ...deps]);
 
   return { data, loading, error, setData };
 }

@@ -41,7 +41,7 @@ const EXCLUSION_GROUPS = [
 
 export default function Header() {
   const { user, isAdmin, logout } = useAuth();
-  const { window, setWindow, exclusions, toggleExclusion, clearExclusions } = useFilters();
+  const { window, setWindow, timeframe, setTimeframe, exclusions, toggleExclusion, clearExclusions } = useFilters();
   const [status, setStatus] = useState(null);
   const [showUpload, setShowUpload] = useState(false);
   const [showExclDropdown, setShowExclDropdown] = useState(false);
@@ -85,17 +85,27 @@ export default function Header() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* Timeframe selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Period</span>
+            <select value={timeframe} onChange={e => setTimeframe(e.target.value)} style={selStyle}>
+              <option value="rolling13">Rolling 13 months</option>
+              <option value="thisYear">{new Date().getFullYear()}</option>
+              <option value="lastYear">{new Date().getFullYear() - 1}</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+
           {/* Window selector */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 10, color: 'var(--text-light)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Window</span>
             <select value={window} onChange={e => setWindow(e.target.value)} style={selStyle}>
-              <option value="core">Core ({'\u2212'}3/+1 mo)</option>
+              <option value="core">{'\u2212'}3/+1 months</option>
               <option value="6_1">{'\u2212'}6/+1 months</option>
-              <option value="3_3">{'\u2212'}3/+3 months</option>
               <option value="3_6">{'\u2212'}3/+6 months</option>
+              <option value="3_9">{'\u2212'}3/+9 months</option>
               <option value="3_12">{'\u2212'}3/+12 months</option>
-              <option value="9mo">{'\u2212'}9/+1 months</option>
-              <option value="r13mo">{'\u2212'}13/+1 months (rolling)</option>
+              <option value="3_18">{'\u2212'}3/+18 months</option>
             </select>
           </div>
 

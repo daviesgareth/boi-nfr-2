@@ -78,9 +78,10 @@ function initDB() {
   const hasOldCols = tableInfo.some(c => c.name === 'retained_1mo');
   const hasNewCols = tableInfo.some(c => c.name === 'retained_core');
   const has9mo = tableInfo.some(c => c.name === 'retained_9mo');
+  const has3_9 = tableInfo.some(c => c.name === 'retained_3_9');
 
-  if ((hasOldCols && !hasNewCols) || (hasNewCols && !has9mo)) {
-    console.log('Migrating nfr_results schema (adding 9mo/r13mo windows)...');
+  if ((hasOldCols && !hasNewCols) || (hasNewCols && !has9mo) || (hasNewCols && !has3_9)) {
+    console.log('Migrating nfr_results schema (updating window columns)...');
     db.exec('DROP TABLE IF EXISTS nfr_results');
   }
 
@@ -90,11 +91,10 @@ function initDB() {
       contract_id TEXT PRIMARY KEY REFERENCES contracts(contract_id),
       retained_core INTEGER DEFAULT 0,
       retained_6_1 INTEGER DEFAULT 0,
-      retained_3_3 INTEGER DEFAULT 0,
       retained_3_6 INTEGER DEFAULT 0,
+      retained_3_9 INTEGER DEFAULT 0,
       retained_3_12 INTEGER DEFAULT 0,
-      retained_9mo INTEGER DEFAULT 0,
-      retained_r13mo INTEGER DEFAULT 0,
+      retained_3_18 INTEGER DEFAULT 0,
       next_contract_id TEXT,
       same_dealer INTEGER,
       brand_loyal INTEGER,

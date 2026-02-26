@@ -296,10 +296,12 @@ function getAtRisk(excl) {
 // ---------------------------------------------------------------------------
 function getWindowComparison(excl) {
   const windowsToCompare = [
-    { label: '3 Month', key: '3mo', col: 'retained_core' },
-    { label: '6 Month', key: '6mo', col: 'retained_6_1' },
-    { label: '9 Month', key: '9mo', col: 'retained_9mo' },
-    { label: '13 Month', key: 'r13mo', col: 'retained_r13mo' },
+    { label: '\u22123/+1 mo', key: 'core', col: 'retained_core' },
+    { label: '\u22126/+1 mo', key: '6_1', col: 'retained_6_1' },
+    { label: '\u22123/+6 mo', key: '3_6', col: 'retained_3_6' },
+    { label: '\u22123/+9 mo', key: '3_9', col: 'retained_3_9' },
+    { label: '\u22123/+12 mo', key: '3_12', col: 'retained_3_12' },
+    { label: '\u22123/+18 mo', key: '3_18', col: 'retained_3_18' },
   ];
 
   return windowsToCompare.map(w => {

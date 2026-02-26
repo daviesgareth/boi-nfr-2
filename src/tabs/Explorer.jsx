@@ -31,7 +31,7 @@ const selectStyle = {
 };
 
 export default function Explorer() {
-  const { window: win, excludeParam } = useFilters();
+  const { window: win, excludeParam, timeframe, timeframeParam } = useFilters();
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [groupBy, setGroupBy] = useState('make');
   const [data, setData] = useState([]);
@@ -60,13 +60,14 @@ export default function Explorer() {
     const params = new URLSearchParams();
     params.set('groupBy', groupBy);
     params.set('window', win);
+    params.set('timeframe', timeframe);
     if (excludeParam) {
       const excl = excludeParam.replace(/^&/, '').split('=');
       if (excl.length === 2) params.set(excl[0], excl[1]);
     }
     Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
     fetchAPI(`/api/explorer?${params}`).then(setData).catch(() => setData([]));
-  }, [filters, groupBy, win, excludeParam]);
+  }, [filters, groupBy, win, excludeParam, timeframe]);
 
   const updateFilter = (key, value) => setFilters(prev => ({ ...prev, [key]: value }));
 

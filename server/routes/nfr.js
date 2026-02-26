@@ -8,59 +8,60 @@ const nfr = require('../dal/nfr-queries');
 const router = express.Router();
 
 router.get('/api/nfr/national', asyncHandler((req, res) => {
-  res.json(nfr.getNational(req.retainedCol, req.exclusionClause));
+  res.json(nfr.getNational(req.retainedCol, req.filterClause));
 }));
 
 router.get('/api/nfr/by-year', asyncHandler((req, res) => {
-  res.json(nfr.getByYear(req.retainedCol, req.exclusionClause));
+  res.json(nfr.getByYear(req.retainedCol, req.filterClause));
 }));
 
 router.get('/api/nfr/by-region', asyncHandler((req, res) => {
-  res.json(nfr.getByRegion(req.retainedCol, req.exclusionClause));
+  res.json(nfr.getByRegion(req.retainedCol, req.filterClause));
 }));
 
 router.get('/api/nfr/by-agreement', asyncHandler((req, res) => {
-  res.json(nfr.getByAgreement(req.retainedCol, req.exclusionClause));
+  res.json(nfr.getByAgreement(req.retainedCol, req.filterClause));
 }));
 
 router.get('/api/nfr/by-term', asyncHandler((req, res) => {
-  res.json(nfr.getByTerm(req.retainedCol, req.exclusionClause));
+  res.json(nfr.getByTerm(req.retainedCol, req.filterClause));
 }));
 
 router.get('/api/nfr/by-dealer-group', asyncHandler((req, res) => {
-  res.json(nfr.getByDealerGroup(req.retainedCol, req.exclusionClause));
+  res.json(nfr.getByDealerGroup(req.retainedCol, req.filterClause));
 }));
 
 router.get('/api/nfr/by-dealer', asyncHandler((req, res) => {
-  res.json(nfr.getByDealer(req.retainedCol, req.exclusionClause));
+  res.json(nfr.getByDealer(req.retainedCol, req.filterClause));
 }));
 
 router.get('/api/nfr/by-make', asyncHandler((req, res) => {
-  res.json(nfr.getByMake(req.retainedCol, req.exclusionClause));
+  res.json(nfr.getByMake(req.retainedCol, req.filterClause));
 }));
 
 router.get('/api/nfr/by-fuel', asyncHandler((req, res) => {
-  res.json(nfr.getByFuel(req.retainedCol, req.exclusionClause));
+  res.json(nfr.getByFuel(req.retainedCol, req.filterClause));
 }));
 
 router.get('/api/nfr/by-customer-type', asyncHandler((req, res) => {
-  res.json(nfr.getByCustomerType(req.retainedCol, req.exclusionClause));
+  res.json(nfr.getByCustomerType(req.retainedCol, req.filterClause));
 }));
 
 router.get('/api/nfr/transitions', asyncHandler((req, res) => {
-  res.json(nfr.getTransitions(req.retainedCol, req.exclusionClause));
+  res.json(nfr.getTransitions(req.retainedCol, req.filterClause));
 }));
 
 router.get('/api/nfr/termination', asyncHandler((req, res) => {
-  res.json(nfr.getTermination(req.retainedCol, req.exclusionClause));
+  res.json(nfr.getTermination(req.retainedCol, req.filterClause));
 }));
 
+// At-risk uses exclusionClause only (no timeframe — it has its own date logic)
 router.get('/api/nfr/at-risk', asyncHandler((req, res) => {
   res.json(nfr.getAtRisk(req.exclusionClause));
 }));
 
 router.get('/api/nfr/window-comparison', asyncHandler((req, res) => {
-  res.json(nfr.getWindowComparison(req.exclusionClause));
+  res.json(nfr.getWindowComparison(req.filterClause));
 }));
 
 module.exports = router;

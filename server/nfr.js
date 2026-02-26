@@ -26,15 +26,14 @@ function computeNFR() {
 
   const DAY_MS = 86400 * 1000;
 
-  // New window definitions: each has its own lookback AND lookahead in days
+  // Window definitions: each has its own lookback AND lookahead in days
   const WINDOWS = {
     'core':  { lookback: 91,  lookahead: 30 },   // -3 months / +1 month
     '6_1':   { lookback: 183, lookahead: 30 },   // -6 months / +1 month
-    '3_3':   { lookback: 91,  lookahead: 91 },   // -3 months / +3 months
     '3_6':   { lookback: 91,  lookahead: 183 },  // -3 months / +6 months
+    '3_9':   { lookback: 91,  lookahead: 274 },  // -3 months / +9 months
     '3_12':  { lookback: 91,  lookahead: 365 },  // -3 months / +12 months
-    '9mo':   { lookback: 274, lookahead: 30 },   // -9 months / +1 month
-    'r13mo': { lookback: 396, lookahead: 30 },   // -13 months / +1 month (rolling)
+    '3_18':  { lookback: 91,  lookahead: 548 },  // -3 months / +18 months
   };
 
   // Find the widest window bounds for candidate search
@@ -129,11 +128,10 @@ function computeNFR() {
       contract_id: contract.contract_id,
       retained_core: retained['core'],
       retained_6_1: retained['6_1'],
-      retained_3_3: retained['3_3'],
       retained_3_6: retained['3_6'],
+      retained_3_9: retained['3_9'],
       retained_3_12: retained['3_12'],
-      retained_9mo: retained['9mo'],
-      retained_r13mo: retained['r13mo'],
+      retained_3_18: retained['3_18'],
       next_contract_id: nextContractId,
       same_dealer: sameDealerVal,
       brand_loyal: brandLoyalVal,
@@ -145,12 +143,12 @@ function computeNFR() {
   const deleteAll = db.prepare('DELETE FROM nfr_results');
   const insertResult = db.prepare(`
     INSERT INTO nfr_results (
-      contract_id, retained_core, retained_6_1, retained_3_3, retained_3_6, retained_3_12,
-      retained_9mo, retained_r13mo,
+      contract_id, retained_core, retained_6_1, retained_3_6, retained_3_9, retained_3_12,
+      retained_3_18,
       next_contract_id, same_dealer, brand_loyal, transition
     ) VALUES (
-      @contract_id, @retained_core, @retained_6_1, @retained_3_3, @retained_3_6, @retained_3_12,
-      @retained_9mo, @retained_r13mo,
+      @contract_id, @retained_core, @retained_6_1, @retained_3_6, @retained_3_9, @retained_3_12,
+      @retained_3_18,
       @next_contract_id, @same_dealer, @brand_loyal, @transition
     )
   `);

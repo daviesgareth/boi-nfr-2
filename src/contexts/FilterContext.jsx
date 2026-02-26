@@ -4,6 +4,7 @@ const FilterContext = createContext(null);
 
 export function FilterProvider({ children }) {
   const [window, setWindow] = useState('core');
+  const [timeframe, setTimeframe] = useState('rolling13');
   const [exclusions, setExclusions] = useState([]);
 
   const toggleExclusion = (key) => {
@@ -17,13 +18,21 @@ export function FilterProvider({ children }) {
     [exclusions]
   );
 
+  const timeframeParam = useMemo(
+    () => `&timeframe=${timeframe}`,
+    [timeframe]
+  );
+
   const value = {
     window,
     setWindow,
+    timeframe,
+    setTimeframe,
     exclusions,
     toggleExclusion,
     clearExclusions,
     excludeParam,
+    timeframeParam,
   };
 
   return <FilterContext.Provider value={value}>{children}</FilterContext.Provider>;
