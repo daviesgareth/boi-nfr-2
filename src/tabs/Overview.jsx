@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import {
-  AreaChart, Area, LineChart, Line, ScatterChart, Scatter,
+  ComposedChart, AreaChart, Area, Bar, LineChart, Line, ScatterChart, Scatter,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ReferenceLine, ZAxis, Cell,
 } from 'recharts';
@@ -72,8 +72,8 @@ const CurveTooltipContent = ({ active, payload }) => {
       fontSize: 12, lineHeight: 1.6,
     }}>
       <div style={{ fontWeight: 700, color: C.navy }}>{label}</div>
-      <div style={{ color: C.textMid }}>Cumulative retention: <strong style={{ color: C.green }}>{d.rate}%</strong></div>
-      <div style={{ color: C.textMuted }}>{fN(d.count)} matched this month ({fN(d.cumulative)} total)</div>
+      <div style={{ color: C.textMid }}>This month: <strong style={{ color: C.iceDark }}>{fN(d.count)}</strong> matched ({d.monthly_rate}%)</div>
+      <div style={{ color: C.textMid }}>Cumulative: <strong style={{ color: C.navy }}>{d.rate}%</strong> ({fN(d.cumulative)} total)</div>
     </div>
   );
 };
@@ -157,51 +157,79 @@ export default function Overview() {
       ]} />
 
       {/* 2. Retention Curve — the centrepiece */}
-      {curveData && curveData.curve && (
-        <ChartCard
-          title="Retention Curve"
-          subtitle="When do customers come back? Cumulative % of ended contracts matched to a new contract by months relative to end date"
-        >
-          <ResponsiveContainer width="100%" height={340}>
-            <AreaChart data={curveData.curve} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
-              <defs>
-                <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={C.navy} stopOpacity={0.15} />
-                  <stop offset="95%" stopColor={C.navy} stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
-              <XAxis
-                dataKey="month"
-                {...axisProps}
-                label={{ value: 'Months from contract end', position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: C.textMuted } }}
-                tickFormatter={v => v === 0 ? '0' : v > 0 ? `+${v}` : `${v}`}
-              />
-              <YAxis {...axisProps} unit="%" domain={[0, 'auto']} />
-              <Tooltip content={<CurveTooltipContent />} />
-              <ReferenceLine x={0} stroke={C.amber} strokeDasharray="4 4" strokeWidth={2} label={{ value: 'End date', position: 'top', style: { fontSize: 10, fill: C.amber, fontWeight: 600 } }} />
-              <Area type="monotone" dataKey="rate" stroke={C.navy} strokeWidth={2.5} fill="url(#curveGrad)" dot={false} activeDot={{ r: 5, fill: C.navy }} />
-            </AreaChart>
-          </ResponsiveContainer>
-          <div style={{ display: 'flex', gap: 24, padding: '12px 0 0', justifyContent: 'center' }}>
-            {[
-              { label: 'At end date', month: 0 },
-              { label: '+3 months', month: 3 },
-              { label: '+6 months', month: 6 },
-              { label: '+12 months', month: 12 },
-              { label: '+18 months', month: 18 },
-            ].map(({ label, month }) => {
-              const point = curveData.curve.find(p => p.month === month);
-              return point ? (
-                <div key={month} style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: C.navy }}>{point.rate}%</div>
-                  <div style={{ fontSize: 10, color: C.textMuted, fontWeight: 600 }}>{label}</div>
+      {curveData && curveData.curve && (() => {
+        // Enrich curve data with monthly rate
+        const total = curveData.total || 1;
+        const enrichedCurve = curveData.curve.map(p => ({
+          ...p,
+          monthly_rate: Math.round((p.count / total) * 10000) / 100,
+        }));
+        // Find peak month
+        const peakMonth = enrichedCurve.reduce((best, p) => p.count > best.count ? p : best, { count: 0 });
+
+        return (
+          <ChartCard
+            title="Retention Curve"
+            subtitle="When do customers come back? Bars show monthly return volume, line shows cumulative retention %"
+          >
+            <div style={{ display: 'flex', gap: 16, padding: '0 0 12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <div style={{ width: 20, height: 3, background: C.navy, borderRadius: 2 }} />
+                <span style={{ color: C.textMid, fontWeight: 600 }}>Cumulative retention %</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <div style={{ width: 12, height: 12, background: C.iceDark, borderRadius: 2, opacity: 0.7 }} />
+                <span style={{ color: C.textMid, fontWeight: 600 }}>Monthly matches (count)</span>
+              </div>
+              {peakMonth.month != null && (
+                <div style={{ fontSize: 11, color: C.textMuted }}>
+                  Peak: <strong style={{ color: C.navy }}>month {peakMonth.month > 0 ? `+${peakMonth.month}` : peakMonth.month}</strong> ({fN(peakMonth.count)} matches)
                 </div>
-              ) : null;
-            })}
-          </div>
-        </ChartCard>
-      )}
+              )}
+            </div>
+            <ResponsiveContainer width="100%" height={340}>
+              <ComposedChart data={enrichedCurve} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
+                <defs>
+                  <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={C.navy} stopOpacity={0.15} />
+                    <stop offset="95%" stopColor={C.navy} stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.borderLight} />
+                <XAxis
+                  dataKey="month"
+                  {...axisProps}
+                  label={{ value: 'Months from contract end', position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: C.textMuted } }}
+                  tickFormatter={v => v === 0 ? '0' : v > 0 ? `+${v}` : `${v}`}
+                />
+                <YAxis yAxisId="left" {...axisProps} unit="%" domain={[0, 'auto']} />
+                <YAxis yAxisId="right" orientation="right" {...axisProps} tickFormatter={v => fN(v)} />
+                <Tooltip content={<CurveTooltipContent />} />
+                <ReferenceLine x={0} yAxisId="left" stroke={C.amber} strokeDasharray="4 4" strokeWidth={2} label={{ value: 'End date', position: 'top', style: { fontSize: 10, fill: C.amber, fontWeight: 600 } }} />
+                <Bar yAxisId="right" dataKey="count" name="Monthly Matches" fill={C.iceDark} fillOpacity={0.55} radius={[3, 3, 0, 0]} barSize={14} />
+                <Area yAxisId="left" type="monotone" dataKey="rate" stroke={C.navy} strokeWidth={2.5} fill="url(#curveGrad)" dot={false} activeDot={{ r: 5, fill: C.navy }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+            <div style={{ display: 'flex', gap: 24, padding: '12px 0 0', justifyContent: 'center' }}>
+              {[
+                { label: 'At end date', month: 0 },
+                { label: '+3 months', month: 3 },
+                { label: '+6 months', month: 6 },
+                { label: '+12 months', month: 12 },
+                { label: '+18 months', month: 18 },
+              ].map(({ label, month }) => {
+                const point = enrichedCurve.find(p => p.month === month);
+                return point ? (
+                  <div key={month} style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: C.navy }}>{point.rate}%</div>
+                    <div style={{ fontSize: 10, color: C.textMuted, fontWeight: 600 }}>{label}</div>
+                  </div>
+                ) : null;
+              })}
+            </div>
+          </ChartCard>
+        );
+      })()}
 
       {/* 3. Volume vs Rate — Scatter Quadrant */}
       <ChartCard
